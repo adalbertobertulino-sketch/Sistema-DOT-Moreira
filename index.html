@@ -1,81 +1,40 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Sistema DOT Moreira</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .card {
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      width: 360px;
-      text-align: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,.1);
-    }
-    button {
-      background: #d9534f;
-      color: white;
-      border: none;
-      padding: 12px;
-      width: 100%;
-      border-radius: 5px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      opacity: 0.9;
-    }
-    #status {
-      margin-top: 15px;
-      color: #555;
-    }
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema DOT Moreira — Login</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="topbar">
+    <div class="brand">Sistema DOT Moreira</div>
+    <span class="badge">Login</span>
+  </div>
 
-<div class="card">
-  <h2>Sistema DOT Moreira</h2>
-  <button onclick="loginGoogle()">Entrar com Google</button>
-  <div id="status"></div>
-</div>
+  <div class="container" style="max-width:680px">
+    <div class="card" style="margin-top:18px">
+      <h1 class="h1">Entrar</h1>
+      <div class="small">Use o botão abaixo para entrar com Google.</div>
 
-<script type="module">
-  import { auth, provider, db } from "./firebase.js";
-  import { signInWithPopup } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+      <hr/>
 
-  window.loginGoogle = async function () {
-    document.getElementById("status").innerText = "Aguardando...";
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      <button id="btnGoogle" class="btn btn-primary" style="width:100%">
+        Entrar com Google
+      </button>
 
-      const ref = doc(db, "users", user.uid);
-      const snap = await getDoc(ref);
+      <div id="status" class="small" style="margin-top:10px"></div>
+      <div id="msg" class="notice" style="display:none; margin-top:12px"></div>
+    </div>
 
-      if (!snap.exists()) {
-        await setDoc(ref, {
-          nome: user.displayName || "",
-          email: user.email,
-          role: "dot",
-          criadoEm: new Date()
-        });
-      }
+    <div class="small" style="margin-top:10px;color:#e2e8f0">
+      Dica: se a janela do Google fechar sozinha, normalmente é domínio não autorizado ou bloqueio de pop-up.
+    </div>
+  </div>
 
-      window.location.href = "dashboard.html";
-    } catch (e) {
-      alert("Erro no login: " + e.message);
-    }
-  };
-</script>
-
+  <script type="module">
+    import { startLoginPage } from "./app.js";
+    startLoginPage();
+  </script>
 </body>
 </html>
