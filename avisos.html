@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Avisos DOT - Sistema DOT Moreira</title>
+  <style>
+    body{font-family:Arial;margin:0;background:#f4f6f9}
+    header{background:#0f172a;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+    main{padding:18px}
+    .card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);max-width:1000px}
+    table{width:100%;border-collapse:collapse;margin-top:14px}
+    th,td{border:1px solid #ddd;padding:8px;text-align:left}
+    button{background:#1e3a8a;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+    a{color:#fff;text-decoration:none;margin-right:10px}
+  </style>
+</head>
+<body>
+
+<header>
+  <div><strong>Sistema DOT Moreira</strong> — Avisos DOT</div>
+  <div>
+    <a href="dashboard.html">Voltar</a>
+    <button id="btnSair">Sair</button>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Alertas e ocorrências</h2>
+    <table>
+      <thead>
+        <tr><th>Tipo</th><th>Aluno</th><th>Turma</th><th>Mensagem</th><th>Criado por</th></tr>
+      </thead>
+      <tbody id="tAvisos"></tbody>
+    </table>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+  import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+    authDomain: "sistema-dot.firebaseapp.com",
+    projectId: "sistema-dot",
+    storageBucket: "sistema-dot.firebasestorage.app",
+    messagingSenderId: "1003611331429",
+    appId: "1:1003611331429:web:bf8478cef6fecfa6059f8c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  onAuthStateChanged(auth, (user) => { if (!user) window.location.href="index.html"; });
+
+  document.getElementById("btnSair").addEventListener("click", async () => {
+    await signOut(auth); window.location.href="index.html";
+  });
+
+  const q = query(collection(db, "avisos"), orderBy("criadoEm", "desc"));
+  onSnapshot(q, (snap) => {
+    const tb = document.getElementById("tAvisos");
+    tb.innerHTML = "";
+    let c = 0;
+    snap.forEach((doc) => {
+      if (c >= 50) return;
+      const a = doc.data();
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${a.tipo || ""}</td><td>${a.alunoNome || ""}</td><td>${a.turmaNome || ""}</td><td>${a.mensagem || ""}</td><td>${a.criadoPorEmail || ""}</td>`;
+      tb.appendChild(tr);
+      c++;
+    });
+  });
+</script>
+
+</body>
+</html>
