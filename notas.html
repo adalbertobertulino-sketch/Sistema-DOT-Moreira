@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema DOT Moreira - Notas</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f3f5f7;}
+    header{background:#0b1f3a;color:#fff;padding:14px 18px;font-weight:700}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 14px}
+    .card{background:#fff;border-radius:10px;padding:14px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    #menu a{margin-right:12px;text-decoration:none;color:#0b1f3a;font-weight:700}
+    label{display:block;margin-top:10px;font-weight:700}
+    input,select,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+    button{background:#1a3d7c;color:#fff;border:none;font-weight:700;cursor:pointer}
+    button:hover{opacity:.95}
+    .danger{background:#b00020}
+    .topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    #status{color:#0b6b2b;font-weight:700}
+    #loading{padding:14px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border-bottom:1px solid #eee;padding:10px;text-align:left}
+    .btnSmall{width:auto;padding:8px 10px;border-radius:8px}
+    .muted{color:#666;font-size:13px}
+    a{color:#1a3d7c}
+  </style>
+</head>
+<body>
+  <header>Sistema DOT Moreira — Notas</header>
+
+  <div class="wrap">
+    <div class="card topline">
+      <div id="menu"></div>
+      <div>
+        <button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button>
+      </div>
+    </div>
+
+    <div class="card" id="loading">
+      <div id="status">Carregando...</div>
+    </div>
+
+    <div id="content" style="display:none;">
+      <div class="card">
+        <h3>Seu perfil</h3>
+        <div><b>Nome:</b> <span id="nome">-</span></div>
+        <div><b>Email:</b> <span id="email">-</span></div>
+        <div><b>Role:</b> <span id="role">-</span></div>
+        <div><b>UID:</b> <span id="uid">-</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Selecionar turma e aluno</h3>
+        <div class="row">
+          <div>
+            <label>Turma</label>
+            <select id="turmaSelect"></select>
+          </div>
+          <div>
+            <label>Aluno</label>
+            <select id="alunoSelect"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Lançar nota (manual)</h3>
+        <div class="row">
+          <div>
+            <label>Avaliação</label>
+            <select id="avaliacao">
+              <option value="AV1">AV1</option>
+              <option value="AV2">AV2</option>
+              <option value="REC">Recuperação</option>
+              <option value="FINAL">Final</option>
+            </select>
+          </div>
+          <div>
+            <label>Nota</label>
+            <input id="nota" type="number" min="0" max="10" step="0.1" placeholder="Ex.: 8.5" />
+          </div>
+        </div>
+        <button id="btnSalvarNota">Salvar Nota</button>
+      </div>
+
+      <div class="card">
+        <h3>Enviar PDF de notas/boletim (para pais)</h3>
+        <p class="muted">Aqui você só faz upload do PDF e o sistema guarda o link pro responsável acessar em outra tela.</p>
+        <input id="pdf" type="file" accept="application/pdf" />
+        <button id="btnEnviarPdf">Enviar PDF</button>
+        <div id="linkPdf" class="muted" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Histórico (notas + PDFs)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Detalhe</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody id="historico"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { protectPage, wireLogoutButton, renderMenu, setStatus } from "./app.js";
+    import { db, storage } from "./firebase.js";
+    import {
+      collection, query, orderBy, getDocs, addDoc,
+      doc, getDoc, setDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+    import {
+      ref, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
+
+    protectPage({ requireAdmin: true }); // ✅ Notas só admin
+    wireLogoutButton();
+    renderMenu();
+
+    const $ = (id) => document.getElementById(id);
+
+    function turmaLabel(t) {
+      return `${t.turma} / ${t.ano} / ${t.turno} / ${t.disciplina}`;
+    }
+
+    async function carregarTurmas() {
+      const sel = $("turmaSelect");
+      sel.innerHTML = "";
+      const snap = await getDocs(query(collection(db, "turmas"), orderBy("createdAt", "desc")));
+      snap.forEach((d) => {
+        const t = d.data();
+        const opt = document.createElement("option");
+        opt.value = d.id;
+        opt.textContent = turmaLabel(t);
+        sel.appendChild(opt);
+      });
+    }
+
+    async function carregarAlunos() {
+      const turmaId = $("turmaSelect").value;
+      const sel = $("alunoSelect");
+      sel.innerHTML = "";
+
+      const all = await getDocs(query(collection(db, "students"), orderBy("createdAt", "desc")));
+      const alunos = [];
+      all.forEach((d) => {
+        const s = d.data();
+        if (s.turmaId === turmaId) alunos.push({ id: d.id, ...s });
+      });
+
+      alunos.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+
+      for (const a of alunos) {
+        const opt = document.createElement("option");
+        opt.value = a.id;
+        opt.textContent = a.name || "(sem nome)";
+        sel.appendChild(opt);
+      }
+    }
+
+    async function salvarNota() {
+      const turmaId = $("turmaSelect").value;
+      const alunoId = $("alunoSelect").value;
+      const avaliacao = $("avaliacao").value;
+      const nota = Number($("nota").value);
+
+      if (!turmaId) return alert("Selecione uma turma.");
+      if (!alunoId) return alert("Selecione um aluno.");
+      if (Number.isNaN(nota)) return alert("Digite uma nota válida.");
+
+      setStatus("Salvando nota...");
+
+      await addDoc(collection(db, "grades"), {
+        turmaId,
+        studentId: alunoId,
+        avaliacao,
+        nota,
+        createdAt: serverTimestamp()
+      });
+
+      $("nota").value = "";
+      setStatus("Nota salva.");
+      await carregarHistorico();
+    }
+
+    async function enviarPdf() {
+      const turmaId = $("turmaSelect").value;
+      const alunoId = $("alunoSelect").value;
+      const file = $("pdf").files[0];
+
+      if (!turmaId) return alert("Selecione uma turma.");
+      if (!alunoId) return alert("Selecione um aluno.");
+      if (!file) return alert("Selecione um PDF.");
+
+      setStatus("Enviando PDF...");
+
+      const path = `pdfs/${turmaId}/${alunoId}/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, path);
+
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+
+      await addDoc(collection(db, "pdfs"), {
+        turmaId,
+        studentId: alunoId,
+        fileName: file.name,
+        url,
+        storagePath: path,
+        createdAt: serverTimestamp()
+      });
+
+      $("pdf").value = "";
+      $("linkPdf").innerHTML = `✅ PDF enviado: <a href="${url}" target="_blank">abrir</a>`;
+      setStatus("PDF salvo.");
+      await carregarHistorico();
+    }
+
+    async function carregarHistorico() {
+      const turmaId = $("turmaSelect").value;
+      const alunoId = $("alunoSelect").value;
+      const tbody = $("historico");
+      tbody.innerHTML = "";
+
+      if (!turmaId || !alunoId) return;
+
+      // Grades
+      const gSnap = await getDocs(query(collection(db, "grades"), orderBy("createdAt", "desc")));
+      const grades = [];
+      gSnap.forEach((d) => {
+        const g = d.data();
+        if (g.turmaId === turmaId && g.studentId === alunoId) grades.push(g);
+      });
+
+      // PDFs
+      const pSnap = await getDocs(query(collection(db, "pdfs"), orderBy("createdAt", "desc")));
+      const pdfs = [];
+      pSnap.forEach((d) => {
+        const p = d.data();
+        if (p.turmaId === turmaId && p.studentId === alunoId) pdfs.push(p);
+      });
+
+      const itens = [];
+
+      for (const g of grades) {
+        itens.push({
+          tipo: "Nota",
+          detalhe: `${g.avaliacao}: ${g.nota}`,
+          data: g.createdAt?.toDate?.() ? g.createdAt.toDate().toLocaleString() : "-"
+        });
+      }
+      for (const p of pdfs) {
+        itens.push({
+          tipo: "PDF",
+          detalhe: `<a href="${p.url}" target="_blank">${p.fileName || "Abrir PDF"}</a>`,
+          data: p.createdAt?.toDate?.() ? p.createdAt.toDate().toLocaleString() : "-"
+        });
+      }
+
+      // ordena por texto de data (não perfeito), mas serve
+      // (se quiser perfeito, a gente guarda timestamp numérico)
+      for (const it of itens) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.tipo}</td>
+          <td>${it.detalhe}</td>
+          <td>${it.data}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    $("btnSalvarNota").addEventListener("click", salvarNota);
+    $("btnEnviarPdf").addEventListener("click", enviarPdf);
+
+    $("turmaSelect").addEventListener("change", async () => {
+      await carregarAlunos();
+      await carregarHistorico();
+    });
+
+    $("alunoSelect").addEventListener("change", carregarHistorico);
+
+    await carregarTurmas();
+    await carregarAlunos();
+    await carregarHistorico();
+    setStatus("OK.");
+  </script>
+</body>
+</html>
