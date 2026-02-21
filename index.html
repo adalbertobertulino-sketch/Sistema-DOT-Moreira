@@ -30,7 +30,7 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
     import {
       getAuth,
       GoogleAuthProvider,
@@ -88,3 +88,4 @@
 
 </body>
 </html>
+
