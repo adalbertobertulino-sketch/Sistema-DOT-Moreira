@@ -3,83 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Dashboard - Sistema DOT Moreira</title>
+  <title>Sistema DOT Moreira</title>
   <style>
-    body{font-family:Arial;margin:0;background:#f4f6f9}
-    header{background:#1e3a8a;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
-    main{padding:18px}
-    .card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);max-width:980px}
-    .links a{display:inline-block;margin:6px 10px 0 0;color:#1e3a8a;text-decoration:none}
-    button{background:#0f172a;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ff;margin-right:6px;font-size:12px}
+    body{font-family:Arial;background:#f2f2f2;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+    .box{background:#fff;padding:26px;width:360px;box-shadow:0 0 10px rgba(0,0,0,.15);border-radius:12px}
+    h1{font-size:20px;margin:0 0 14px 0;text-align:center}
+    button{width:100%;padding:12px;border:0;border-radius:10px;cursor:pointer;margin-top:10px;font-weight:700}
+    .google{background:#DB4437;color:#fff}
+    .msg{margin-top:12px;font-size:13px;color:#111;text-align:center;word-break:break-word;min-height:18px}
   </style>
 </head>
 <body>
 
-<header>
-  <div><strong>Sistema DOT Moreira</strong> — Dashboard</div>
-  <button id="btnSair">Sair</button>
-</header>
-
-<main>
-  <div class="card">
-    <h2 id="boasVindas">Carregando…</h2>
-    <p><span class="pill">Perfil</span> <span id="role">carregando…</span></p>
-
-    <div class="links">
-      <a href="alunos.html">Alunos</a>
-      <a href="turmas.html">Turmas</a>
-      <a href="notas.html">Notas</a>
-      <a href="faltas.html">Faltas por Aula</a>
-      <a href="avisos.html">Avisos DOT</a>
-      <a href="admin.html" id="linkAdmin" style="display:none">Admin (Direção)</a>
-    </div>
-  </div>
-</main>
+<div class="box">
+  <h1>Sistema DOT Moreira</h1>
+  <button class="google" id="btnGoogle" type="button">Entrar com Google</button>
+  <div class="msg" id="status">Aguardando…</div>
+</div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+  import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
+  // ✅ SUA CONFIG (NÃO MUDE)
   const firebaseConfig = {
-    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-    authDomain: "sistema-dot.firebaseapp.com",
-    projectId: "sistema-dot",
-    storageBucket: "sistema-dot.firebasestorage.app",
-    messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:bf8478cef6fecfa6059f8c"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  document.getElementById("btnSair").addEventListener("click", async () => {
-    await signOut(auth);
-    window.location.href = "index.html";
-  });
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = "index.html";
-      return;
-    }
-
-    document.getElementById("boasVindas").textContent =
-      `Bem-vindo, ${user.displayName || "Usuário"} (${user.email})`;
-
-    // lê role em users/{uid}
-    const snap = await getDoc(doc(db, "users", user.uid));
-    const role = snap.exists() ? (snap.data().role || "dot") : "dot";
-
-    document.getElementById("role").textContent = role;
-
-    if (role === "admin") {
-      document.getElementById("linkAdmin").style.display = "inline-block";
-    }
-  });
-</script>
-
-</body>
-</html>
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmW
