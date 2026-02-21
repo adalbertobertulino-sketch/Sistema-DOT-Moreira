@@ -1,182 +1,170 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sistema DOT Moreira — Dashboard</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f4f6f9}
-    header{background:#0b1b3a;color:#fff;padding:14px 18px;font-weight:700}
-    .wrap{max-width:900px;margin:18px auto;padding:0 14px}
-    .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
-    .row{display:flex;gap:14px;flex-wrap:wrap}
-    .pill{display:inline-block;background:#eef2ff;border:1px solid #dbe4ff;padding:6px 10px;border-radius:999px;font-size:12px}
-    .err{background:#ffecec;border:1px solid #ffb3b3;color:#7a0000;padding:10px;border-radius:10px;white-space:pre-wrap}
-    .ok{background:#ecfff1;border:1px solid #b3ffd0;color:#005a1d;padding:10px;border-radius:10px;white-space:pre-wrap}
-    button{cursor:pointer;border:0;border-radius:10px;padding:10px 12px;font-weight:700}
-    .btn{background:#e23a3a;color:#fff}
-    .btn2{background:#1f3b82;color:#fff}
-    a{color:#1f3b82}
-    .muted{color:#666}
-    code{background:#f1f1f1;padding:2px 6px;border-radius:6px}
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
-  <header>Sistema DOT Moreira — Dashboard</header>
+  <div class="topbar">
+    <div class="brand">Sistema DOT Moreira — Dashboard</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="badgeRole" class="badge">Carregando…</span>
+      <button id="btnSair" class="btn btn-ghost">Sair</button>
+    </div>
+  </div>
 
-  <div class="wrap">
+  <div class="container">
     <div class="card">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div>
-          <div class="pill" id="statusPill">Carregando…</div>
-          <div style="font-size:22px;font-weight:800;margin-top:10px" id="titulo">Carregando…</div>
-          <div class="muted" id="sub">Aguarde…</div>
-        </div>
-        <div class="row">
-          <button class="btn2" id="btnRecarregar">Recarregar</button>
-          <button class="btn" id="btnSair">Sair</button>
-        </div>
+      <h1 class="h1" id="welcome">Carregando…</h1>
+      <div class="small" id="who"></div>
+
+      <div id="notice" class="notice" style="display:none;margin-top:12px"></div>
+
+      <div class="nav" style="margin-top:12px">
+        <a href="#" data-tab="inicio" class="active">Início</a>
+        <a href="#" data-tab="turmas">Turmas</a>
+        <a href="#" data-tab="alunos">Alunos</a>
+        <a href="#" data-tab="avisos">Avisos DOT</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- COLUNA PRINCIPAL -->
+      <div class="card">
+        <!-- INÍCIO -->
+        <section id="tab-inicio">
+          <h2 style="margin:0 0 8px 0">Painel</h2>
+          <div class="small">Dados em tempo real (Firestore)</div>
+
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kpi-num" id="kpiTurmas">—</div>
+              <div class="kpi-lbl">Turmas</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-num" id="kpiAlunos">—</div>
+              <div class="kpi-lbl">Alunos</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-num" id="kpiAvisos">—</div>
+              <div class="kpi-lbl">Avisos</div>
+            </div>
+          </div>
+
+          <hr/>
+
+          <div class="small">Últimos avisos</div>
+          <div class="list" id="listAvisosResumo"></div>
+        </section>
+
+        <!-- TURMAS -->
+        <section id="tab-turmas" style="display:none">
+          <h2 style="margin:0 0 8px 0">Turmas</h2>
+          <div class="small">Admin cria/edita. Usuário DOT só visualiza.</div>
+
+          <div id="formTurma" style="display:none; margin-top:12px">
+            <hr/>
+            <h3 style="margin:0 0 8px 0">Cadastrar turma</h3>
+            <div class="row">
+              <div class="field">
+                <label>Nome da turma</label>
+                <input id="turmaNome" placeholder="Ex.: 1º Ano A" />
+              </div>
+              <div class="field">
+                <label>Ano</label>
+                <input id="turmaAno" placeholder="Ex.: 2026" />
+              </div>
+            </div>
+            <button id="btnSalvarTurma" class="btn btn-primary" style="margin-top:10px">
+              Salvar turma
+            </button>
+            <div class="small" id="turmaMsg" style="margin-top:8px"></div>
+          </div>
+
+          <hr/>
+          <div class="list" id="listTurmas"></div>
+        </section>
+
+        <!-- ALUNOS -->
+        <section id="tab-alunos" style="display:none">
+          <h2 style="margin:0 0 8px 0">Alunos</h2>
+          <div class="small">Admin cadastra e escolhe a turma. Usuário DOT só visualiza.</div>
+
+          <div id="formAluno" style="display:none; margin-top:12px">
+            <hr/>
+            <h3 style="margin:0 0 8px 0">Cadastrar aluno</h3>
+            <div class="row">
+              <div class="field">
+                <label>Nome do aluno</label>
+                <input id="alunoNome" placeholder="Nome completo" />
+              </div>
+              <div class="field">
+                <label>Turma</label>
+                <select id="alunoTurma">
+                  <option value="">Carregando turmas…</option>
+                </select>
+              </div>
+            </div>
+            <button id="btnSalvarAluno" class="btn btn-primary" style="margin-top:10px">
+              Salvar aluno
+            </button>
+            <div class="small" id="alunoMsg" style="margin-top:8px"></div>
+          </div>
+
+          <hr/>
+          <div class="list" id="listAlunos"></div>
+        </section>
+
+        <!-- AVISOS -->
+        <section id="tab-avisos" style="display:none">
+          <h2 style="margin:0 0 8px 0">Avisos DOT</h2>
+          <div class="small">Admin publica avisos. Usuário DOT visualiza.</div>
+
+          <div id="formAviso" style="display:none; margin-top:12px">
+            <hr/>
+            <h3 style="margin:0 0 8px 0">Publicar aviso</h3>
+            <div class="row">
+              <div class="field">
+                <label>Título</label>
+                <input id="avisoTitulo" placeholder="Ex.: Reunião pedagógica" />
+              </div>
+              <div class="field">
+                <label>Data</label>
+                <input id="avisoData" type="date" />
+              </div>
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label>Texto</label>
+              <textarea id="avisoTexto" placeholder="Escreva o aviso..."></textarea>
+            </div>
+            <button id="btnSalvarAviso" class="btn btn-primary" style="margin-top:10px">
+              Publicar aviso
+            </button>
+            <div class="small" id="avisoMsg" style="margin-top:8px"></div>
+          </div>
+
+          <hr/>
+          <div class="list" id="listAvisos"></div>
+        </section>
       </div>
 
-      <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+      <!-- COLUNA LATERAL -->
+      <div class="card">
+        <h2 style="margin:0 0 8px 0">Perfil</h2>
+        <div class="small" id="perfilBox">Carregando…</div>
 
-      <div id="debugBox" class="muted">Debug aparecerá aqui.</div>
+        <hr/>
 
-      <div style="margin-top:12px" id="msgBox"></div>
-
-      <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
-
-      <div class="row">
-        <div class="card" style="flex:1;min-width:240px">
-          <b>Nome</b>
-          <div id="nome">—</div>
-        </div>
-        <div class="card" style="flex:1;min-width:240px">
-          <b>Email</b>
-          <div id="email">—</div>
-        </div>
-        <div class="card" style="flex:1;min-width:240px">
-          <b>Role</b>
-          <div id="role">—</div>
-        </div>
+        <div class="notice" id="debugBox" style="display:none"></div>
       </div>
-
-      <p class="muted" style="margin-top:14px">
-        Se travar, o erro vai aparecer acima (ex.: <code>permission-denied</code> ou <code>not-found</code>).
-      </p>
     </div>
   </div>
 
   <script type="module">
-    // ======= IMPORTS (CDN) =======
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-
-    // ======= CONFIG (SEU FIREBASE) =======
-    const firebaseConfig = {
-      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-      authDomain: "sistema-dot.firebaseapp.com",
-      projectId: "sistema-dot",
-      storageBucket: "sistema-dot.firebasestorage.app",
-      messagingSenderId: "1003611331429",
-      appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
-    };
-
-    // ======= INIT =======
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // ======= UI HELPERS =======
-    const pill = (t) => document.getElementById("statusPill").textContent = t;
-    const setTitle = (t) => document.getElementById("titulo").textContent = t;
-    const setSub = (t) => document.getElementById("sub").textContent = t;
-
-    function showError(msg){
-      document.getElementById("msgBox").innerHTML = `<div class="err"><b>ERRO:</b>\n${msg}</div>`;
-    }
-    function showOk(msg){
-      document.getElementById("msgBox").innerHTML = `<div class="ok"><b>OK:</b>\n${msg}</div>`;
-    }
-
-    document.getElementById("btnSair").onclick = async () => {
-      await signOut(auth);
-      window.location.href = "index.html";
-    };
-    document.getElementById("btnRecarregar").onclick = () => window.location.reload();
-
-    // ======= MAIN =======
-    pill("Carregando…");
-    setTitle("Carregando…");
-    setSub("Verificando login…");
-
-    onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user){
-          pill("Sem login");
-          setTitle("Você não está logado");
-          setSub("Volte para a tela de login.");
-          showError("Nenhum usuário autenticado. Voltando para index.html …");
-          setTimeout(()=> window.location.href="index.html", 1200);
-          return;
-        }
-
-        // Debug na tela (sem F12)
-        document.getElementById("debugBox").innerHTML =
-          `<b>UID:</b> ${user.uid}<br>` +
-          `<b>Email Auth:</b> ${user.email ?? "(sem email)"}<br>` +
-          `<b>DisplayName Auth:</b> ${user.displayName ?? "(sem nome)"}<br>` +
-          `<b>Doc esperado:</b> <code>users/${user.uid}</code>`;
-
-        pill("Lendo Firestore…");
-        setTitle("Carregando dados…");
-        setSub("Buscando perfil em users/UID");
-
-        const ref = doc(db, "users", user.uid);
-        const snap = await getDoc(ref);
-
-        // Se não existir, cria (isso evita “Carregando…” eterno por doc inexistente)
-        if (!snap.exists()){
-          await setDoc(ref, {
-            email: user.email ?? "",
-            nome: user.displayName ?? "",
-            role: "dot",
-            createdAt: serverTimestamp()
-          }, { merge: true });
-
-          showOk("Seu perfil não existia no Firestore. Eu criei automaticamente com role='dot'.\nAgora recarregue a página.");
-          pill("Perfil criado");
-          setTitle("Perfil criado");
-          setSub("Clique em Recarregar.");
-          return;
-        }
-
-        const data = snap.data();
-        const nome = data?.nome || user.displayName || "(sem nome)";
-        const email = data?.email || user.email || "(sem email)";
-        const role = data?.role || "dot";
-
-        document.getElementById("nome").textContent = nome;
-        document.getElementById("email").textContent = email;
-        document.getElementById("role").textContent = role;
-
-        pill("OK");
-        setTitle(`Bem-vindo(a), ${nome}`);
-        setSub(`Acesso: ${role}`);
-
-        showOk("Leitura do Firestore concluída com sucesso.");
-
-      } catch (e){
-        const code = e?.code || "(sem code)";
-        const msg = e?.message || String(e);
-        pill("Falhou");
-        setTitle("Falha ao carregar");
-        setSub("Veja o erro abaixo (copie e me envie).");
-        showError(`code: ${code}\nmessage: ${msg}\n\n⚠️ Isso geralmente é REGRAS do Firestore (permission-denied) ou domínio não autorizado.`);
-      }
-    });
+    import { startDashboardPage } from "./app.js";
+    startDashboardPage();
   </script>
 </body>
 </html>
