@@ -1,83 +1,15 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>Sistema DOT Moreira - Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema DOT Moreira — Dashboard</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      margin: 0;
-    }
-    header {
-      background: #1f2a44;
-      color: white;
-      padding: 15px;
-      font-size: 18px;
-    }
-    .container {
-      padding: 20px;
-    }
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 6px;
-      max-width: 600px;
-    }
-    .erro {
-      color: red;
-      font-weight: bold;
-    }
-  </style>
-</head>
-
-<body>
-
-<header>
-  Sistema DOT Moreira – Dashboard
-</header>
-
-<div class="container">
-  <div class="card">
-    <h2 id="welcome">Carregando...</h2>
-    <p><strong>Nome:</strong> <span id="nome"></span></p>
-    <p><strong>Email:</strong> <span id="email"></span></p>
-    <p><strong>Role:</strong> <span id="role"></span></p>
-    <p id="erro" class="erro"></p>
-  </div>
-</div>
-
-<!-- FIREBASE -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-    authDomain: "sistema-dot.firebaseapp.com",
-    projectId: "sistema-dot",
-    storageBucket: "sistema-dot.appspot.com",
-    messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = "index.html";
-      return;
-    }
-
-    try {
-      const uid = user.uid;
-
-      const ref = doc(db, "users", uid);
-      const snap = await getDoc(ref);
-
-      if (!
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f4f6f9}
+    header{background:#0b1b3a;color:#fff;padding:14px 18px;font-weight:700}
+    .wrap{max-width:900px;margin:18px auto;padding:0 14px}
+    .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+    .row{display:flex;gap:14px;flex-wrap:wrap}
+    .pill{display:inline-block;background:#eef2ff;border:1px solid #dbe4ff;padding:6px 10px;border-radius:999px;font-size:12px}
+    .err{background:#ffecec;border:1px solid #ffb3b3;color:#7a0000;padding:10px;border-radius:10px;white-space:pre-wrap}
+    .ok{background:#ec
