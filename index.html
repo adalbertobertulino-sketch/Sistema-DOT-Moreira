@@ -1,44 +1,132 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sistema DOT Moreira</title>
   <style>
-    body{font-family:Arial;background:#f2f2f2;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-    .box{background:#fff;padding:26px;width:360px;box-shadow:0 0 10px rgba(0,0,0,.15);border-radius:12px}
-    h1{font-size:20px;margin:0 0 14px 0;text-align:center}
-    button{width:100%;padding:12px;border:0;border-radius:10px;cursor:pointer;margin-top:10px;font-weight:700}
-    .google{background:#DB4437;color:#fff}
-    .msg{margin-top:12px;font-size:13px;color:#111;text-align:center;word-break:break-word;min-height:18px}
+    body{font-family:Arial,Helvetica,sans-serif;background:#f2f4f7;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
+    .card{background:#fff;width:380px;max-width:92vw;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:22px}
+    h1{margin:6px 0 18px;text-align:center;font-size:28px}
+    .btn{width:100%;border:0;border-radius:10px;padding:14px 12px;font-size:16px;cursor:pointer}
+    .btn-google{background:#e05a5a;color:#fff;font-weight:700}
+    .btn-google:disabled{opacity:.6;cursor:not-allowed}
+    .status{margin-top:10px;text-align:center;color:#666;min-height:22px}
+    .error{margin-top:10px;background:#fff2f2;border:1px solid #ffd0d0;color:#b30000;padding:10px;border-radius:10px;font-size:14px;display:none;white-space:pre-wrap}
+    .small{margin-top:12px;font-size:12px;color:#777;text-align:center}
+    .link{color:#0b57d0;text-decoration:underline;cursor:pointer}
   </style>
 </head>
 <body>
+  <div class="card">
+    <h1>Sistema DOT Moreira</h1>
 
-<div class="box">
-  <h1>Sistema DOT Moreira</h1>
-  <button class="google" id="btnGoogle" type="button">Entrar com Google</button>
-  <div class="msg" id="status">Aguardando…</div>
-</div>
+    <button id="btnGoogle" class="btn btn-google">Entrar com Google</button>
+    <div id="status" class="status"></div>
+    <div id="errBox" class="error"></div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signInWithRedirect,
-    getRedirectResult,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import {
-    getFirestore,
-    doc,
-    setDoc,
-    getDoc,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    <div class="small">
+      Se travar em “Aguardando…”, clique em
+      <span id="btnReload" class="link">Recarregar</span>.
+    </div>
+  </div>
 
-  // ✅ SUA CONFIG (NÃO MUDE)
-  const firebaseConfig = {
-    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmW
+  <script type="module">
+    // ====== FIREBASE (SDK via CDN) ======
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+
+    // >>>>>> COLE AQUI A SUA CONFIGURAÇÃO (a que você mandou por último) <<<<<<
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+      authDomain: "sistema-dot.firebaseapp.com",
+      projectId: "sistema-dot",
+      storageBucket: "sistema-dot.firebasestorage.app",
+      messagingSenderId: "1003611331429",
+      appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
+      measurementId: "G-FS1CBVNFEG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    const btnGoogle = document.getElementById("btnGoogle");
+    const statusEl = document.getElementById("status");
+    const errBox = document.getElementById("errBox");
+
+    function setStatus(msg){
+      statusEl.textContent = msg || "";
+    }
+    function showError(title, err){
+      errBox.style.display = "block";
+      errBox.textContent =
+        `${title}\n\n` +
+        `code: ${err?.code || "(sem code)"}\n` +
+        `message: ${err?.message || err}\n\n` +
+        `Dica: esse code é o que diz exatamente o que falta ajustar.`;
+      console.error("AUTH ERROR:", err);
+    }
+
+    // 1) Se voltou de redirect, pega o resultado aqui
+    try {
+      const res = await getRedirectResult(auth);
+      if (res?.user) {
+        setStatus("Login concluído. Indo para o painel…");
+        location.href = "dashboard.html";
+      }
+    } catch (e) {
+      showError("Erro ao finalizar retorno do login (redirect).", e);
+    }
+
+    // 2) Se já estiver logado, manda direto
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setStatus("Você já está logado. Indo para o painel…");
+        location.href = "dashboard.html";
+      }
+    });
+
+    // 3) Botão login: tenta POPUP; se for bloqueado, usa REDIRECT
+    btnGoogle.addEventListener("click", async () => {
+      errBox.style.display = "none";
+      btnGoogle.disabled = true;
+      setStatus("Abrindo login do Google…");
+
+      try {
+        const res = await signInWithPopup(auth, provider);
+        if (res?.user) {
+          setStatus("Login concluído. Indo para o painel…");
+          location.href = "dashboard.html";
+        }
+      } catch (e) {
+        // Popup bloqueado/fechado -> tenta redirect
+        const code = e?.code || "";
+        if (code.includes("popup-blocked") || code.includes("popup-closed-by-user") || code.includes("cancelled-popup-request")) {
+          setStatus("Popup bloqueado. Tentando via redirecionamento…");
+          try {
+            await signInWithRedirect(auth, provider);
+          } catch (e2) {
+            showError("Falha ao iniciar login por redirect.", e2);
+            btnGoogle.disabled = false;
+            setStatus("");
+          }
+        } else {
+          showError("Falha no login com Google.", e);
+          btnGoogle.disabled = false;
+          setStatus("");
+        }
+      }
+    });
+
+    document.getElementById("btnReload").addEventListener("click", () => location.reload());
+  </script>
+</body>
+</html>
