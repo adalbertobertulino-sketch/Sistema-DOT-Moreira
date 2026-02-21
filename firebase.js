@@ -1,11 +1,8 @@
-// firebase.js (ESM)
-// Firebase v12 via CDN (module)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
-// ✅ SUA CONFIG (a que você mandou)
 const firebaseConfig = {
   apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
   authDomain: "sistema-dot.firebaseapp.com",
