@@ -1,170 +1,125 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sistema DOT Moreira — Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistema DOT Moreira - Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="topbar">
+  <header class="topbar">
     <div class="brand">Sistema DOT Moreira — Dashboard</div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span id="badgeRole" class="badge">Carregando…</span>
-      <button id="btnSair" class="btn btn-ghost">Sair</button>
+    <div class="top-actions">
+      <a class="btn btn-secondary" href="reports.html">Relatórios (PDF)</a>
+      <button class="btn btn-danger" onclick="logout()">Sair</button>
     </div>
-  </div>
+  </header>
 
-  <div class="container">
-    <div class="card">
-      <h1 class="h1" id="welcome">Carregando…</h1>
-      <div class="small" id="who"></div>
-
-      <div id="notice" class="notice" style="display:none;margin-top:12px"></div>
-
-      <div class="nav" style="margin-top:12px">
-        <a href="#" data-tab="inicio" class="active">Início</a>
-        <a href="#" data-tab="turmas">Turmas</a>
-        <a href="#" data-tab="alunos">Alunos</a>
-        <a href="#" data-tab="avisos">Avisos DOT</a>
+  <main class="container">
+    <section class="profile box">
+      <h2>Perfil</h2>
+      <div class="grid2">
+        <div><b>Nome:</b> <span id="pNome">Carregando...</span></div>
+        <div><b>Email:</b> <span id="pEmail">Carregando...</span></div>
+        <div><b>Role:</b> <span id="pRole">Carregando...</span></div>
+        <div><b>School:</b> <span id="pSchool">Carregando...</span></div>
       </div>
-    </div>
+      <div class="small" id="debug"></div>
+    </section>
 
-    <div class="grid">
-      <!-- COLUNA PRINCIPAL -->
-      <div class="card">
-        <!-- INÍCIO -->
-        <section id="tab-inicio">
-          <h2 style="margin:0 0 8px 0">Painel</h2>
-          <div class="small">Dados em tempo real (Firestore)</div>
+    <section class="tabs box">
+      <nav class="tabbar">
+        <button class="tabbtn active" data-tab="painel">Painel</button>
+        <button class="tabbtn" data-tab="turmas">Turmas</button>
+        <button class="tabbtn" data-tab="alunos">Alunos</button>
+        <button class="tabbtn" data-tab="aulas">Faltas por aula</button>
+        <button class="tabbtn" data-tab="notas">Notas</button>
+        <button class="tabbtn" data-tab="avisos">Avisos DOT</button>
+      </nav>
 
-          <div class="kpis">
-            <div class="kpi">
-              <div class="kpi-num" id="kpiTurmas">—</div>
-              <div class="kpi-lbl">Turmas</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-num" id="kpiAlunos">—</div>
-              <div class="kpi-lbl">Alunos</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-num" id="kpiAvisos">—</div>
-              <div class="kpi-lbl">Avisos</div>
-            </div>
-          </div>
-
-          <hr/>
-
-          <div class="small">Últimos avisos</div>
-          <div class="list" id="listAvisosResumo"></div>
-        </section>
-
-        <!-- TURMAS -->
-        <section id="tab-turmas" style="display:none">
-          <h2 style="margin:0 0 8px 0">Turmas</h2>
-          <div class="small">Admin cria/edita. Usuário DOT só visualiza.</div>
-
-          <div id="formTurma" style="display:none; margin-top:12px">
-            <hr/>
-            <h3 style="margin:0 0 8px 0">Cadastrar turma</h3>
-            <div class="row">
-              <div class="field">
-                <label>Nome da turma</label>
-                <input id="turmaNome" placeholder="Ex.: 1º Ano A" />
-              </div>
-              <div class="field">
-                <label>Ano</label>
-                <input id="turmaAno" placeholder="Ex.: 2026" />
-              </div>
-            </div>
-            <button id="btnSalvarTurma" class="btn btn-primary" style="margin-top:10px">
-              Salvar turma
-            </button>
-            <div class="small" id="turmaMsg" style="margin-top:8px"></div>
-          </div>
-
-          <hr/>
-          <div class="list" id="listTurmas"></div>
-        </section>
-
-        <!-- ALUNOS -->
-        <section id="tab-alunos" style="display:none">
-          <h2 style="margin:0 0 8px 0">Alunos</h2>
-          <div class="small">Admin cadastra e escolhe a turma. Usuário DOT só visualiza.</div>
-
-          <div id="formAluno" style="display:none; margin-top:12px">
-            <hr/>
-            <h3 style="margin:0 0 8px 0">Cadastrar aluno</h3>
-            <div class="row">
-              <div class="field">
-                <label>Nome do aluno</label>
-                <input id="alunoNome" placeholder="Nome completo" />
-              </div>
-              <div class="field">
-                <label>Turma</label>
-                <select id="alunoTurma">
-                  <option value="">Carregando turmas…</option>
-                </select>
-              </div>
-            </div>
-            <button id="btnSalvarAluno" class="btn btn-primary" style="margin-top:10px">
-              Salvar aluno
-            </button>
-            <div class="small" id="alunoMsg" style="margin-top:8px"></div>
-          </div>
-
-          <hr/>
-          <div class="list" id="listAlunos"></div>
-        </section>
-
-        <!-- AVISOS -->
-        <section id="tab-avisos" style="display:none">
-          <h2 style="margin:0 0 8px 0">Avisos DOT</h2>
-          <div class="small">Admin publica avisos. Usuário DOT visualiza.</div>
-
-          <div id="formAviso" style="display:none; margin-top:12px">
-            <hr/>
-            <h3 style="margin:0 0 8px 0">Publicar aviso</h3>
-            <div class="row">
-              <div class="field">
-                <label>Título</label>
-                <input id="avisoTitulo" placeholder="Ex.: Reunião pedagógica" />
-              </div>
-              <div class="field">
-                <label>Data</label>
-                <input id="avisoData" type="date" />
-              </div>
-            </div>
-            <div class="field" style="margin-top:10px">
-              <label>Texto</label>
-              <textarea id="avisoTexto" placeholder="Escreva o aviso..."></textarea>
-            </div>
-            <button id="btnSalvarAviso" class="btn btn-primary" style="margin-top:10px">
-              Publicar aviso
-            </button>
-            <div class="small" id="avisoMsg" style="margin-top:8px"></div>
-          </div>
-
-          <hr/>
-          <div class="list" id="listAvisos"></div>
-        </section>
+      <div class="tabcontent" id="painel">
+        <h2>Painel</h2>
+        <div class="kpis">
+          <div class="kpi"><div class="kpi-title">Turmas</div><div class="kpi-val" id="kTurmas">0</div></div>
+          <div class="kpi"><div class="kpi-title">Alunos</div><div class="kpi-val" id="kAlunos">0</div></div>
+          <div class="kpi"><div class="kpi-title">Avisos</div><div class="kpi-val" id="kAvisos">0</div></div>
+        </div>
+        <div class="small">Dados em tempo real (Firestore).</div>
       </div>
 
-      <!-- COLUNA LATERAL -->
-      <div class="card">
-        <h2 style="margin:0 0 8px 0">Perfil</h2>
-        <div class="small" id="perfilBox">Carregando…</div>
+      <div class="tabcontent hidden" id="turmas">
+        <h2>Turmas</h2>
+        <div class="adminOnly small warn">Somente admin pode criar/editar turmas.</div>
 
-        <hr/>
+        <div class="form adminOnly">
+          <input id="turmaNome" placeholder="Nome da turma (ex: 1º Ano A)" />
+          <input id="turmaAno" placeholder="Ano (ex: 2026)" />
+          <button class="btn" onclick="saveTurma()">Salvar turma</button>
+        </div>
 
-        <div class="notice" id="debugBox" style="display:none"></div>
+        <ul id="listaTurmas" class="list"></ul>
       </div>
-    </div>
-  </div>
 
-  <script type="module">
-    import { startDashboardPage } from "./app.js";
-    startDashboardPage();
-  </script>
+      <div class="tabcontent hidden" id="alunos">
+        <h2>Alunos</h2>
+        <div class="adminOnly small warn">Somente admin pode cadastrar alunos.</div>
+
+        <div class="form adminOnly">
+          <input id="alunoNome" placeholder="Nome do aluno" />
+          <select id="alunoTurma"></select>
+          <button class="btn" onclick="saveAluno()">Salvar aluno</button>
+        </div>
+
+        <ul id="listaAlunos" class="list"></ul>
+      </div>
+
+      <div class="tabcontent hidden" id="aulas">
+        <h2>Faltas por Aula</h2>
+        <div class="form">
+          <select id="aulaTurma"></select>
+          <select id="aulaAluno"></select>
+          <input id="aulaData" type="date" />
+          <input id="aulaFaltas" type="number" placeholder="Faltas (ex: 1)" />
+          <button class="btn" onclick="saveFaltaAula()">Salvar</button>
+        </div>
+        <ul id="listaAulas" class="list"></ul>
+      </div>
+
+      <div class="tabcontent hidden" id="notas">
+        <h2>Notas</h2>
+        <div class="form">
+          <select id="notaTurma"></select>
+          <select id="notaAluno"></select>
+          <select id="notaTipo">
+            <option value="AV1">AV1</option>
+            <option value="AV2">AV2</option>
+            <option value="REC">Recuperação</option>
+            <option value="FINAL">Final</option>
+          </select>
+          <input id="notaValor" type="number" step="0.1" placeholder="Nota (ex: 8.5)" />
+          <button class="btn" onclick="saveNota()">Salvar</button>
+        </div>
+        <ul id="listaNotas" class="list"></ul>
+      </div>
+
+      <div class="tabcontent hidden" id="avisos">
+        <h2>Avisos DOT</h2>
+        <div class="adminOnly small warn">Somente admin pode publicar avisos.</div>
+
+        <div class="form adminOnly">
+          <input id="avisoTitulo" placeholder="Título do aviso" />
+          <input id="avisoData" type="date" />
+          <textarea id="avisoTexto" placeholder="Texto do aviso"></textarea>
+          <button class="btn" onclick="saveAviso()">Publicar aviso</button>
+        </div>
+
+        <ul id="listaAvisos" class="list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./firebase.js"></script>
+  <script type="module" src="./auth.js"></script>
+  <script type="module" src="./dashboard.js"></script>
 </body>
 </html>
