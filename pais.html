@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema DOT Moreira - Área dos Pais</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f3f5f7;}
+    header{background:#0b1f3a;color:#fff;padding:14px 18px;font-weight:700}
+    .wrap{max-width:980px;margin:18px auto;padding:0 14px}
+    .card{background:#fff;border-radius:10px;padding:14px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    #menu a{margin-right:12px;text-decoration:none;color:#0b1f3a;font-weight:700}
+    label{display:block;margin-top:10px;font-weight:700}
+    input,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+    button{background:#1a3d7c;color:#fff;border:none;font-weight:700;cursor:pointer}
+    button:hover{opacity:.95}
+    .danger{background:#b00020}
+    .topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    #status{color:#0b6b2b;font-weight:700}
+    #loading{padding:14px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border-bottom:1px solid #eee;padding:10px;text-align:left}
+    .muted{color:#666;font-size:13px}
+    a{color:#1a3d7c}
+  </style>
+</head>
+<body>
+  <header>Sistema DOT Moreira — Área dos Pais</header>
+
+  <div class="wrap">
+    <div class="card topline">
+      <div id="menu"></div>
+      <div><button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button></div>
+    </div>
+
+    <div class="card" id="loading"><div id="status">Carregando...</div></div>
+
+    <div id="content" style="display:none;">
+      <div class="card">
+        <h3>Acesso do Responsável</h3>
+        <div class="muted">Informe o <b>Código do Aluno</b> (studentId). O responsável verá notas e PDFs.</div>
+
+        <label>Código do Aluno</label>
+        <input id="studentId" placeholder="Ex.: xYz123Abc..." />
+        <button id="btnBuscar">Buscar</button>
+      </div>
+
+      <div class="card">
+        <h3>Notas</h3>
+        <table>
+          <thead>
+            <tr><th>Avaliação</th><th>Nota</th><th>Data</th></tr>
+          </thead>
+          <tbody id="grades"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>PDFs</h3>
+        <table>
+          <thead>
+            <tr><th>Arquivo</th><th>Link</th><th>Data</th></tr>
+          </thead>
+          <tbody id="pdfs"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { protectPage, wireLogoutButton, renderMenu, setStatus } from "./app.js";
+    import { db } from "./firebase.js";
+    import { collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+    // ✅ Qualquer usuário logado pode acessar (se quiser: allowedRoles:["parent"] eu ajusto)
+    protectPage({ allowedRoles: [] });
+    wireLogoutButton();
+    renderMenu();
+
+    const $ = (id)=>document.getElementById(id);
+
+    function fmt(ts){
+      try { return ts?.toDate?.().toLocaleString() || "-"; } catch { return "-"; }
+    }
+
+    async function carregarNotas(studentId){
+      const tbody = $("grades");
+      tbody.innerHTML = "";
+
+      const snap = await getDocs(query(collection(db,"grades"), orderBy("createdAt","desc")));
+      snap.forEach((d)=>{
+        const g = d.data();
+        if(g.studentId === studentId){
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${g.avaliacao||""}</td><td>${g.nota ?? ""}</td><td>${fmt(g.createdAt)}</td>`;
+          tbody.appendChild(tr);
+        }
+      });
+    }
+
+    async function carregarPdfs(studentId){
+      const tbody = $("pdfs");
+      tbody.innerHTML = "";
+
+      const snap = await getDocs(query(collection(db,"pdfs"), orderBy("createdAt","desc")));
+      snap.forEach((d)=>{
+        const p = d.data();
+        if(p.studentId === studentId){
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${p.fileName||""}</td><td><a href="${p.url}" target="_blank">abrir</a></td><td>${fmt(p.createdAt)}</td>`;
+          tbody.appendChild(tr);
+        }
+      });
+    }
+
+    $("btnBuscar").addEventListener("click", async ()=>{
+      const studentId = $("studentId").value.trim();
+      if(!studentId) return alert("Digite o Código do Aluno.");
+
+      setStatus("Buscando...");
+      await carregarNotas(studentId);
+      await carregarPdfs(studentId);
+      setStatus("OK.");
+    });
+  </script>
+</body>
+</html>
