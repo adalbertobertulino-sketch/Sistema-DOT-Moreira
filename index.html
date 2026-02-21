@@ -7,10 +7,10 @@
   <style>
     body{font-family:Arial;background:#f2f2f2;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
     .box{background:#fff;padding:26px;width:360px;box-shadow:0 0 10px rgba(0,0,0,.15);border-radius:12px}
-    h1{font-size:18px;margin:0 0 14px 0;text-align:center}
-    button{width:100%;padding:10px;border:0;border-radius:10px;cursor:pointer;margin-top:10px}
+    h1{font-size:20px;margin:0 0 14px 0;text-align:center}
+    button{width:100%;padding:12px;border:0;border-radius:10px;cursor:pointer;margin-top:10px;font-weight:700}
     .google{background:#DB4437;color:#fff}
-    .msg{margin-top:12px;font-size:13px;color:#111;text-align:center;word-break:break-word}
+    .msg{margin-top:12px;font-size:13px;color:#111;text-align:center;word-break:break-word;min-height:18px}
   </style>
 </head>
 <body>
@@ -18,7 +18,7 @@
 <div class="box">
   <h1>Sistema DOT Moreira</h1>
   <button class="google" id="btnGoogle" type="button">Entrar com Google</button>
-  <div class="msg" id="status">Aguardando…</div>
+  <div class="msg" id="status"></div>
 </div>
 
 <script type="module">
@@ -26,19 +26,22 @@
   import {
     getAuth,
     GoogleAuthProvider,
+    signInWithPopup,
     signInWithRedirect,
     getRedirectResult,
     onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
   import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
+  // ✅ SUA CONFIG (NÃO MUDE)
   const firebaseConfig = {
     apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
     authDomain: "sistema-dot.firebaseapp.com",
     projectId: "sistema-dot",
     storageBucket: "sistema-dot.firebasestorage.app",
     messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:bf8478cef6fecfa6059f8c"
+    appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
+    measurementId: "G-FS1CBVNFEG"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -47,39 +50,52 @@
   const provider = new GoogleAuthProvider();
 
   const statusEl = document.getElementById("status");
+  const btnGoogle = document.getElementById("btnGoogle");
 
-  document.getElementById("btnGoogle").addEventListener("click", async () => {
-    try {
-      statusEl.textContent = "Redirecionando para login Google…";
-      await signInWithRedirect(auth, provider);
-    } catch (e) {
-      console.error(e);
-      statusEl.textContent = "Erro ao iniciar login: " + (e.code || e.message);
-      alert("Erro: " + (e.code || e.message));
-    }
-  });
+  async function salvarUsuario(user) {
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      nome: user.displayName || "",
+      email: user.email || "",
+      role: "dot",
+      atualizadoEm: serverTimestamp()
+    }, { merge: true });
+  }
 
-  // Volta do Google: salva/atualiza users/{uid} e redireciona
-  getRedirectResult(auth).then(async (result) => {
+  // 1) tenta concluir retorno de redirect (se houver)
+  try {
+    const result = await getRedirectResult(auth);
     if (result && result.user) {
-      const user = result.user;
-
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        nome: user.displayName || "",
-        email: user.email || "",
-        role: "dot", // padrão (depois você muda o seu para admin no Firestore)
-        atualizadoEm: serverTimestamp()
-      }, { merge: true });
-
+      statusEl.textContent = "Login OK ✅ Entrando…";
+      await salvarUsuario(result.user);
       window.location.href = "dashboard.html";
     }
-  }).catch((e) => {
+  } catch (e) {
     console.error(e);
     statusEl.textContent = "Erro no retorno do login: " + (e.code || e.message);
+  }
+
+  // 2) botão: tenta POPUP; se popup bloqueado, usa redirect
+  btnGoogle.addEventListener("click", async () => {
+    try {
+      statusEl.textContent = "Abrindo login Google…";
+      const res = await signInWithPopup(auth, provider);
+      await salvarUsuario(res.user);
+      window.location.href = "dashboard.html";
+    } catch (e) {
+      console.error(e);
+      const msg = (e.code || e.message || "").toString();
+      if (msg.includes("popup") || msg.toLowerCase().includes("popup")) {
+        statusEl.textContent = "Popup bloqueado. Redirecionando…";
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      statusEl.textContent = "Erro no login: " + msg;
+      alert("Erro no login: " + msg);
+    }
   });
 
-  // Se já estiver logado, vai direto
+  // 3) se já estiver logado, vai direto
   onAuthStateChanged(auth, (user) => {
     if (user) window.location.href = "dashboard.html";
   });
