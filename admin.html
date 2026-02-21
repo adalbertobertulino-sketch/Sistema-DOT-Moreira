@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin - Sistema DOT Moreira</title>
+  <style>
+    body{font-family:Arial;margin:0;background:#f4f6f9}
+    header{background:#0f172a;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+    main{padding:18px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+    .card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+    button{background:#1e3a8a;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:14px}
+    th,td{border:1px solid #ddd;padding:8px;text-align:left}
+    a{color:#fff;text-decoration:none;margin-right:10px}
+    .warn{color:#b91c1c;font-weight:bold}
+  </style>
+</head>
+<body>
+
+<header>
+  <div><strong>Sistema DOT Moreira</strong> — Painel Administrativo</div>
+  <div>
+    <a href="dashboard.html">Voltar</a>
+    <button id="btnSair">Sair</button>
+  </div>
+</header>
+
+<main>
+  <h2 id="infoUser">Carregando…</h2>
+  <p id="infoRole" class="warn"></p>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Turmas</h3>
+      <div id="qtdTurmas">0</div>
+    </div>
+    <div class="card">
+      <h3>Alunos</h3>
+      <div id="qtdAlunos">0</div>
+    </div>
+    <div class="card">
+      <h3>Usuários do sistema</h3>
+      <div id="qtdUsers">0</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>Usuários (admin / DOT)</h3>
+    <table>
+      <thead>
+        <tr><th>Nome</th><th>Email</th><th>Role</th></tr>
+      </thead>
+      <tbody id="tUsers"></tbody>
+    </table>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    collection,
+    onSnapshot
+  } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+    authDomain: "sistema-dot.firebaseapp.com",
+    projectId: "sistema-dot",
+    storageBucket: "sistema-dot.firebasestorage.app",
+    messagingSenderId: "1003611331429",
+    appId: "1:1003611331429:web:bf8478cef6fecfa6059f8c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Sair
+  document.getElementById("btnSair").addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "index.html";
+  });
+
+  // Proteção + verificação de role admin
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    document.getElementById("infoUser").textContent =
+      `Logado: ${user.displayName || "Usuário"} (${user.email})`;
+
+    // Busca role no Firestore (coleção users)
+    // ⚠️ Aqui precisamos achar o documento do user.
+    // Como você criou o role dentro de um doc existente,
+    // vamos procurar pelo email dentro da coleção users via snapshot
+    // e liberar admin quando achar role=admin.
+    // (Mais tarde eu te ensino a padronizar usando UID como docId)
+
+    let achouAdmin = false;
+
+    onSnapshot(collection(db, "users"), (snap) => {
+      // conta users
+      document.getElementById("qtdUsers").textContent = snap.size;
+
+      const tbody = document.getElementById("tUsers");
+      tbody.innerHTML = "";
+
+      snap.forEach((d) => {
+        const data = d.data();
+        const nome = data.nome || "";
+        const email = data.email || "";
+        const role = data.role || "";
+
+        // verifica se este doc é você e se é admin
+        if (email === user.email && role === "admin") {
+          achouAdmin = true;
+          document.getElementById("infoRole").textContent = "";
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${nome}</td><td>${email}</td><td>${role}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      if (!achouAdmin) {
+        document.getElementById("infoRole").textContent =
+          "Acesso negado: você não é admin. Voltando...";
+        setTimeout(() => window.location.href = "dashboard.html", 1500);
+      }
+    });
+
+    // Contar turmas
+    onSnapshot(collection(db, "turmas"), (snap) => {
+      document.getElementById("qtdTurmas").textContent = snap.size;
+    });
+
+    // Contar alunos
+    onSnapshot(collection(db, "alunos"), (snap) => {
+      document.getElementById("qtdAlunos").textContent = snap.size;
+    });
+  });
+</script>
+
+</body>
+</html>
