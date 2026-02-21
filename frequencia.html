@@ -31,21 +31,17 @@
   <div class="wrap">
     <div class="card topline">
       <div id="menu"></div>
-      <div>
-        <button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button>
-      </div>
+      <div><button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button></div>
     </div>
 
-    <div class="card" id="loading">
-      <div id="status">Carregando...</div>
-    </div>
+    <div class="card" id="loading"><div id="status">Carregando...</div></div>
 
     <div id="content" style="display:none;">
       <div class="card">
         <h3>Seu perfil</h3>
         <div><b>Nome:</b> <span id="nome">-</span></div>
         <div><b>Email:</b> <span id="email">-</span></div>
-        <div><b>Role:</b> <span id="role">-</span></div>
+        <div><b>Role(s):</b> <span id="role">-</span></div>
         <div><b>UID:</b> <span id="uid">-</span></div>
       </div>
 
@@ -53,7 +49,7 @@
         <h3>Configurar chamada</h3>
         <div class="row">
           <div>
-            <label>Turma (Padrão B)</label>
+            <label>Turma</label>
             <select id="turmaSelect"></select>
           </div>
           <div>
@@ -78,7 +74,7 @@
 
       <div class="card">
         <h3>Chamada do dia</h3>
-        <div class="pill">Dica: você pode marcar Presente/Ausente OU preencher “faltou X aulas”</div>
+        <div class="pill">Pode marcar Presente/Ausente OU preencher “faltou X aulas”</div>
 
         <table>
           <thead>
@@ -96,28 +92,26 @@
   </div>
 
   <script type="module">
-    import { protectPage, wireLogoutButton, renderMenu, setStatus } from "./app.js";
-    import { db } from "./firebase.js";
+    import { protectPage, wireLogoutButton, renderMenu, setStatus, ensureUserDoc } from "./app.js";
+    import { auth, db } from "./firebase.js";
     import {
       collection, query, orderBy, getDocs, addDoc,
       doc, getDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    protectPage({ requireAdmin: true }); // ✅ Frequência só admin
+    protectPage({ allowedRoles: ["admin","monitor"] });
     wireLogoutButton();
     renderMenu();
 
     const $ = (id) => document.getElementById(id);
 
-    function turmaLabel(t) {
-      return `${t.turma} / ${t.ano} / ${t.turno} / ${t.disciplina}`;
-    }
+    function turmaLabel(t){ return `${t.turma} / ${t.ano} / ${t.turno} / ${t.disciplina}`; }
 
-    async function carregarTurmas() {
+    async function carregarTurmas(){
       const sel = $("turmaSelect");
       sel.innerHTML = "";
-      const snap = await getDocs(query(collection(db, "turmas"), orderBy("createdAt", "desc")));
-      snap.forEach((d) => {
+      const snap = await getDocs(query(collection(db,"turmas"), orderBy("createdAt","desc")));
+      snap.forEach((d)=>{
         const t = d.data();
         const opt = document.createElement("option");
         opt.value = d.id;
@@ -126,134 +120,115 @@
       });
     }
 
-    async function importarAlunosDoTexto() {
+    async function aplicarTurmaDoMonitor(){
+      const user = auth.currentUser;
+      if(!user) return;
+      const u = await ensureUserDoc(user);
+      if(u?.turmaIdMonitor){
+        $("turmaSelect").value = u.turmaIdMonitor;
+        $("turmaSelect").disabled = true;
+      }
+    }
+
+    async function importarAlunosDoTexto(){
       const turmaId = $("turmaSelect").value;
       const raw = $("paste").value.trim();
-      if (!turmaId) return alert("Selecione uma turma.");
-      if (!raw) return alert("Cole pelo menos 1 nome (1 por linha).");
+      if(!turmaId) return alert("Selecione uma turma.");
+      if(!raw) return alert("Cole pelo menos 1 nome (1 por linha).");
 
-      const linhas = raw.split("\n").map(s => s.trim()).filter(Boolean);
+      const linhas = raw.split("\n").map(s=>s.trim()).filter(Boolean);
       setStatus("Importando alunos...");
 
-      for (const nome of linhas) {
-        // salva em students com vínculo da turma
-        await addDoc(collection(db, "students"), {
-          name: nome,
+      for(const nome of linhas){
+        await addDoc(collection(db,"students"),{
+          name:nome,
           turmaId,
           createdAt: serverTimestamp()
         });
       }
 
-      $("paste").value = "";
+      $("paste").value="";
       setStatus("Alunos importados.");
       await carregarAlunosDaTurma();
     }
 
-    async function carregarAlunosDaTurma() {
+    async function carregarAlunosDaTurma(){
       const turmaId = $("turmaSelect").value;
       const data = $("data").value;
       const tbody = $("listaAlunos");
       tbody.innerHTML = "";
+      if(!turmaId || !data) return;
 
-      if (!turmaId) return;
-      if (!data) return;
-
-      // Busca alunos da turma
-      const all = await getDocs(query(collection(db, "students"), orderBy("createdAt", "desc")));
-      const alunos = [];
-      all.forEach((d) => {
-        const s = d.data();
-        if (s.turmaId === turmaId) alunos.push({ id: d.id, ...s });
+      const all = await getDocs(query(collection(db,"students"), orderBy("createdAt","desc")));
+      const alunos=[];
+      all.forEach((d)=>{
+        const s=d.data();
+        if(s.turmaId===turmaId) alunos.push({id:d.id, ...s});
       });
 
-      // Monta tabela
       alunos.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
 
-      for (const a of alunos) {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-          <td>${a.name || ""}</td>
+      for(const a of alunos){
+        const tr=document.createElement("tr");
+        tr.innerHTML=`
+          <td>${a.name||""}</td>
           <td>
             <select id="presenca_${a.id}">
               <option value="presente">Presente</option>
               <option value="ausente">Ausente</option>
             </select>
           </td>
-          <td>
-            <input id="faltas_${a.id}" type="number" min="0" max="12" value="0" />
-          </td>
-          <td>
-            <button class="btnSmall" id="save_${a.id}">Salvar</button>
-          </td>
+          <td><input id="faltas_${a.id}" type="number" min="0" max="12" value="0"/></td>
+          <td><button class="btnSmall" id="save_${a.id}">Salvar</button></td>
         `;
-
         tbody.appendChild(tr);
 
-        // pré-carregar se já existe registro do dia
         const key = `${data}_${turmaId}_${a.id}`;
-        const ref = doc(db, "attendance", key);
+        const ref = doc(db,"attendance", key);
         const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const r = snap.data();
-          const pres = document.getElementById(`presenca_${a.id}`);
-          const falt = document.getElementById(`faltas_${a.id}`);
-          if (pres) pres.value = r.status || "presente";
-          if (falt) falt.value = String(r.absences || 0);
+        if(snap.exists()){
+          const r=snap.data();
+          document.getElementById(`presenca_${a.id}`).value = r.status || "presente";
+          document.getElementById(`faltas_${a.id}`).value = String(r.absences||0);
         }
 
-        document.getElementById(`save_${a.id}`).addEventListener("click", async () => {
-          try {
-            const presenca = document.getElementById(`presenca_${a.id}`).value;
-            const faltas = Number(document.getElementById(`faltas_${a.id}`).value || 0);
-            const qtdAulasDia = Number($("qtdAulasDia").value || 2);
+        document.getElementById(`save_${a.id}`).addEventListener("click", async ()=>{
+          const presenca = document.getElementById(`presenca_${a.id}`).value;
+          const faltas = Number(document.getElementById(`faltas_${a.id}`).value || 0);
+          const qtdAulasDia = Number($("qtdAulasDia").value || 2);
 
-            if (faltas < 0 || faltas > 12) {
-              alert("Faltas inválidas.");
-              return;
-            }
+          let absences = faltas;
+          let status = presenca;
+          if(status==="ausente" && absences===0) absences = qtdAulasDia;
+          if(status==="presente" && absences>0) status="ausente";
 
-            // Se marcou ausente e faltas=0, assume que faltou todas as aulas do dia
-            let absences = faltas;
-            let status = presenca;
+          await setDoc(ref,{
+            date:data,
+            turmaId,
+            studentId:a.id,
+            studentName:a.name||"",
+            status,
+            absences,
+            qtdAulasDia,
+            updatedAt: serverTimestamp()
+          }, {merge:true});
 
-            if (status === "ausente" && absences === 0) absences = qtdAulasDia;
-            if (status === "presente" && absences > 0) status = "ausente";
-
-            await setDoc(ref, {
-              date: data,
-              turmaId,
-              studentId: a.id,
-              studentName: a.name || "",
-              status,
-              absences,
-              qtdAulasDia,
-              updatedAt: serverTimestamp()
-            }, { merge: true });
-
-            setStatus("Frequência salva.");
-          } catch (e) {
-            console.error(e);
-            alert("Erro ao salvar: " + (e?.message || e));
-          }
+          setStatus("Frequência salva.");
         });
       }
     }
 
     $("btnImportar").addEventListener("click", importarAlunosDoTexto);
-
     $("turmaSelect").addEventListener("change", carregarAlunosDaTurma);
     $("data").addEventListener("change", carregarAlunosDaTurma);
 
-    // data default = hoje
     const hoje = new Date();
-    const yyyy = hoje.getFullYear();
-    const mm = String(hoje.getMonth()+1).padStart(2,"0");
-    const dd = String(hoje.getDate()).padStart(2,"0");
-    $("data").value = `${yyyy}-${mm}-${dd}`;
+    $("data").value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
 
     await carregarTurmas();
+    await aplicarTurmaDoMonitor();
     await carregarAlunosDaTurma();
+    setStatus("OK.");
   </script>
 </body>
 </html>
