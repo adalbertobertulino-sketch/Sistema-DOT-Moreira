@@ -32,26 +32,15 @@
   <p id="infoRole" class="warn"></p>
 
   <div class="cards">
-    <div class="card">
-      <h3>Turmas</h3>
-      <div id="qtdTurmas">0</div>
-    </div>
-    <div class="card">
-      <h3>Alunos</h3>
-      <div id="qtdAlunos">0</div>
-    </div>
-    <div class="card">
-      <h3>Usuários do sistema</h3>
-      <div id="qtdUsers">0</div>
-    </div>
+    <div class="card"><h3>Turmas</h3><div id="qtdTurmas">0</div></div>
+    <div class="card"><h3>Alunos</h3><div id="qtdAlunos">0</div></div>
+    <div class="card"><h3>Usuários</h3><div id="qtdUsers">0</div></div>
   </div>
 
   <div class="card" style="margin-top:14px">
-    <h3>Usuários (admin / DOT)</h3>
+    <h3>Usuários (role)</h3>
     <table>
-      <thead>
-        <tr><th>Nome</th><th>Email</th><th>Role</th></tr>
-      </thead>
+      <thead><tr><th>Nome</th><th>Email</th><th>Role</th></tr></thead>
       <tbody id="tUsers"></tbody>
     </table>
   </div>
@@ -81,70 +70,43 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // Sair
   document.getElementById("btnSair").addEventListener("click", async () => {
     await signOut(auth);
     window.location.href = "index.html";
   });
 
-  // Proteção + verificação de role admin
   onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = "index.html";
-      return;
-    }
+    if (!user) { window.location.href = "index.html"; return; }
 
     document.getElementById("infoUser").textContent =
       `Logado: ${user.displayName || "Usuário"} (${user.email})`;
 
-    // Busca role no Firestore (coleção users)
-    // ⚠️ Aqui precisamos achar o documento do user.
-    // Como você criou o role dentro de um doc existente,
-    // vamos procurar pelo email dentro da coleção users via snapshot
-    // e liberar admin quando achar role=admin.
-    // (Mais tarde eu te ensino a padronizar usando UID como docId)
+    // ✅ Checa role por UID: users/{uid}
+    const snap = await getDoc(doc(db, "users", user.uid));
+    const role = snap.exists() ? (snap.data().role || "dot") : "dot";
 
-    let achouAdmin = false;
+    if (role !== "admin") {
+      document.getElementById("infoRole").textContent =
+        "Acesso negado: você não é admin. Voltando…";
+      setTimeout(() => window.location.href = "dashboard.html", 1200);
+      return;
+    }
 
-    onSnapshot(collection(db, "users"), (snap) => {
-      // conta users
-      document.getElementById("qtdUsers").textContent = snap.size;
+    document.getElementById("infoRole").textContent = "";
 
-      const tbody = document.getElementById("tUsers");
-      tbody.innerHTML = "";
-
-      snap.forEach((d) => {
-        const data = d.data();
-        const nome = data.nome || "";
-        const email = data.email || "";
-        const role = data.role || "";
-
-        // verifica se este doc é você e se é admin
-        if (email === user.email && role === "admin") {
-          achouAdmin = true;
-          document.getElementById("infoRole").textContent = "";
-        }
-
+    // Contadores
+    onSnapshot(collection(db, "turmas"), (s) => document.getElementById("qtdTurmas").textContent = s.size);
+    onSnapshot(collection(db, "alunos"), (s) => document.getElementById("qtdAlunos").textContent = s.size);
+    onSnapshot(collection(db, "users"), (s) => {
+      document.getElementById("qtdUsers").textContent = s.size;
+      const tb = document.getElementById("tUsers");
+      tb.innerHTML = "";
+      s.forEach((d) => {
+        const u = d.data();
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${nome}</td><td>${email}</td><td>${role}</td>`;
-        tbody.appendChild(tr);
+        tr.innerHTML = `<td>${u.nome||""}</td><td>${u.email||""}</td><td>${u.role||""}</td>`;
+        tb.appendChild(tr);
       });
-
-      if (!achouAdmin) {
-        document.getElementById("infoRole").textContent =
-          "Acesso negado: você não é admin. Voltando...";
-        setTimeout(() => window.location.href = "dashboard.html", 1500);
-      }
-    });
-
-    // Contar turmas
-    onSnapshot(collection(db, "turmas"), (snap) => {
-      document.getElementById("qtdTurmas").textContent = snap.size;
-    });
-
-    // Contar alunos
-    onSnapshot(collection(db, "alunos"), (snap) => {
-      document.getElementById("qtdAlunos").textContent = snap.size;
     });
   });
 </script>
