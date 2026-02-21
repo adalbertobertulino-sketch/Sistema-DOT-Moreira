@@ -1,49 +1,72 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Dashboard - Sistema DOT Moreira</title>
+  <meta charset="UTF-8">
+  <title>Sistema DOT Moreira - Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
     body {
-      font-family: Arial;
-      background: #f5f5f5;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
       margin: 0;
     }
     header {
       background: #1f2a44;
       color: white;
       padding: 15px;
+      font-size: 18px;
     }
-    main {
+    .container {
       padding: 20px;
     }
-    .box {
+    .card {
       background: white;
       padding: 20px;
-      border-radius: 8px;
+      border-radius: 6px;
       max-width: 600px;
+    }
+    .erro {
+      color: red;
+      font-weight: bold;
     }
   </style>
 </head>
+
 <body>
 
 <header>
   Sistema DOT Moreira – Dashboard
 </header>
 
-<main>
-  <div class="box">
-    <h2 id="boasVindas">Carregando...</h2>
-    <p><b>Nome:</b> <span id="nome"></span></p>
-    <p><b>Email:</b> <span id="email"></span></p>
-    <p><b>Role:</b> <span id="role"></span></p>
+<div class="container">
+  <div class="card">
+    <h2 id="welcome">Carregando...</h2>
+    <p><strong>Nome:</strong> <span id="nome"></span></p>
+    <p><strong>Email:</strong> <span id="email"></span></p>
+    <p><strong>Role:</strong> <span id="role"></span></p>
+    <p id="erro" class="erro"></p>
   </div>
-</main>
+</div>
 
+<!-- FIREBASE -->
 <script type="module">
-  import { auth, db } from "./firebase.js";
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+    authDomain: "sistema-dot.firebaseapp.com",
+    projectId: "sistema-dot",
+    storageBucket: "sistema-dot.appspot.com",
+    messagingSenderId: "1003611331429",
+    appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
@@ -51,24 +74,10 @@
       return;
     }
 
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
+    try {
+      const uid = user.uid;
 
-    if (!snap.exists()) {
-      alert("Usuário não encontrado no banco");
-      return;
-    }
+      const ref = doc(db, "users", uid);
+      const snap = await getDoc(ref);
 
-    const data = snap.data();
-
-    document.getElementById("nome").innerText = data.nome || "";
-    document.getElementById("email").innerText = data.email || "";
-    document.getElementById("role").innerText = data.role || "";
-
-    document.getElementById("boasVindas").innerText =
-      `Bem-vindo(a), ${data.nome || data.email}`;
-  });
-</script>
-
-</body>
-</html>
+      if (!
