@@ -12,4 +12,171 @@
     .row{display:flex;gap:14px;flex-wrap:wrap}
     .pill{display:inline-block;background:#eef2ff;border:1px solid #dbe4ff;padding:6px 10px;border-radius:999px;font-size:12px}
     .err{background:#ffecec;border:1px solid #ffb3b3;color:#7a0000;padding:10px;border-radius:10px;white-space:pre-wrap}
-    .ok{background:#ec
+    .ok{background:#ecfff1;border:1px solid #b3ffd0;color:#005a1d;padding:10px;border-radius:10px;white-space:pre-wrap}
+    button{cursor:pointer;border:0;border-radius:10px;padding:10px 12px;font-weight:700}
+    .btn{background:#e23a3a;color:#fff}
+    .btn2{background:#1f3b82;color:#fff}
+    a{color:#1f3b82}
+    .muted{color:#666}
+    code{background:#f1f1f1;padding:2px 6px;border-radius:6px}
+  </style>
+</head>
+
+<body>
+  <header>Sistema DOT Moreira — Dashboard</header>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div>
+          <div class="pill" id="statusPill">Carregando…</div>
+          <div style="font-size:22px;font-weight:800;margin-top:10px" id="titulo">Carregando…</div>
+          <div class="muted" id="sub">Aguarde…</div>
+        </div>
+        <div class="row">
+          <button class="btn2" id="btnRecarregar">Recarregar</button>
+          <button class="btn" id="btnSair">Sair</button>
+        </div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+
+      <div id="debugBox" class="muted">Debug aparecerá aqui.</div>
+
+      <div style="margin-top:12px" id="msgBox"></div>
+
+      <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+
+      <div class="row">
+        <div class="card" style="flex:1;min-width:240px">
+          <b>Nome</b>
+          <div id="nome">—</div>
+        </div>
+        <div class="card" style="flex:1;min-width:240px">
+          <b>Email</b>
+          <div id="email">—</div>
+        </div>
+        <div class="card" style="flex:1;min-width:240px">
+          <b>Role</b>
+          <div id="role">—</div>
+        </div>
+      </div>
+
+      <p class="muted" style="margin-top:14px">
+        Se travar, o erro vai aparecer acima (ex.: <code>permission-denied</code> ou <code>not-found</code>).
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    // ======= IMPORTS (CDN) =======
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+    // ======= CONFIG (SEU FIREBASE) =======
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+      authDomain: "sistema-dot.firebaseapp.com",
+      projectId: "sistema-dot",
+      storageBucket: "sistema-dot.firebasestorage.app",
+      messagingSenderId: "1003611331429",
+      appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+    };
+
+    // ======= INIT =======
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ======= UI HELPERS =======
+    const pill = (t) => document.getElementById("statusPill").textContent = t;
+    const setTitle = (t) => document.getElementById("titulo").textContent = t;
+    const setSub = (t) => document.getElementById("sub").textContent = t;
+
+    function showError(msg){
+      document.getElementById("msgBox").innerHTML = `<div class="err"><b>ERRO:</b>\n${msg}</div>`;
+    }
+    function showOk(msg){
+      document.getElementById("msgBox").innerHTML = `<div class="ok"><b>OK:</b>\n${msg}</div>`;
+    }
+
+    document.getElementById("btnSair").onclick = async () => {
+      await signOut(auth);
+      window.location.href = "index.html";
+    };
+    document.getElementById("btnRecarregar").onclick = () => window.location.reload();
+
+    // ======= MAIN =======
+    pill("Carregando…");
+    setTitle("Carregando…");
+    setSub("Verificando login…");
+
+    onAuthStateChanged(auth, async (user) => {
+      try {
+        if (!user){
+          pill("Sem login");
+          setTitle("Você não está logado");
+          setSub("Volte para a tela de login.");
+          showError("Nenhum usuário autenticado. Voltando para index.html …");
+          setTimeout(()=> window.location.href="index.html", 1200);
+          return;
+        }
+
+        // Debug na tela (sem F12)
+        document.getElementById("debugBox").innerHTML =
+          `<b>UID:</b> ${user.uid}<br>` +
+          `<b>Email Auth:</b> ${user.email ?? "(sem email)"}<br>` +
+          `<b>DisplayName Auth:</b> ${user.displayName ?? "(sem nome)"}<br>` +
+          `<b>Doc esperado:</b> <code>users/${user.uid}</code>`;
+
+        pill("Lendo Firestore…");
+        setTitle("Carregando dados…");
+        setSub("Buscando perfil em users/UID");
+
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
+
+        // Se não existir, cria (isso evita “Carregando…” eterno por doc inexistente)
+        if (!snap.exists()){
+          await setDoc(ref, {
+            email: user.email ?? "",
+            nome: user.displayName ?? "",
+            role: "dot",
+            createdAt: serverTimestamp()
+          }, { merge: true });
+
+          showOk("Seu perfil não existia no Firestore. Eu criei automaticamente com role='dot'.\nAgora recarregue a página.");
+          pill("Perfil criado");
+          setTitle("Perfil criado");
+          setSub("Clique em Recarregar.");
+          return;
+        }
+
+        const data = snap.data();
+        const nome = data?.nome || user.displayName || "(sem nome)";
+        const email = data?.email || user.email || "(sem email)";
+        const role = data?.role || "dot";
+
+        document.getElementById("nome").textContent = nome;
+        document.getElementById("email").textContent = email;
+        document.getElementById("role").textContent = role;
+
+        pill("OK");
+        setTitle(`Bem-vindo(a), ${nome}`);
+        setSub(`Acesso: ${role}`);
+
+        showOk("Leitura do Firestore concluída com sucesso.");
+
+      } catch (e){
+        const code = e?.code || "(sem code)";
+        const msg = e?.message || String(e);
+        pill("Falhou");
+        setTitle("Falha ao carregar");
+        setSub("Veja o erro abaixo (copie e me envie).");
+        showError(`code: ${code}\nmessage: ${msg}\n\n⚠️ Isso geralmente é REGRAS do Firestore (permission-denied) ou domínio não autorizado.`);
+      }
+    });
+  </script>
+</body>
+</html>
