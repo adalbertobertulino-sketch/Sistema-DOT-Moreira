@@ -38,9 +38,9 @@
   </div>
 
   <div class="card" style="margin-top:14px">
-    <h3>Usuários (role)</h3>
+    <h3>Usuários</h3>
     <table>
-      <thead><tr><th>Nome</th><th>Email</th><th>Role</th></tr></thead>
+      <thead><tr><th>Nome</th><th>Email</th><th>Role</th><th>UID</th></tr></thead>
       <tbody id="tUsers"></tbody>
     </table>
   </div>
@@ -63,7 +63,8 @@
     projectId: "sistema-dot",
     storageBucket: "sistema-dot.firebasestorage.app",
     messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:bf8478cef6fecfa6059f8c"
+    appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
+    measurementId: "G-FS1CBVNFEG"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -81,7 +82,6 @@
     document.getElementById("infoUser").textContent =
       `Logado: ${user.displayName || "Usuário"} (${user.email})`;
 
-    // ✅ Checa role por UID: users/{uid}
     const snap = await getDoc(doc(db, "users", user.uid));
     const role = snap.exists() ? (snap.data().role || "dot") : "dot";
 
@@ -104,7 +104,7 @@
       s.forEach((d) => {
         const u = d.data();
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${u.nome||""}</td><td>${u.email||""}</td><td>${u.role||""}</td>`;
+        tr.innerHTML = `<td>${u.nome||""}</td><td>${u.email||""}</td><td>${u.role||""}</td><td>${u.uid||d.id}</td>`;
         tb.appendChild(tr);
       });
     });
