@@ -1,40 +1,29 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sistema DOT Moreira — Login</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistema DOT Moreira - Login</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <div class="topbar">
-    <div class="brand">Sistema DOT Moreira</div>
-    <span class="badge">Login</span>
+<body class="bg">
+  <div class="card">
+    <h1>Sistema DOT Moreira</h1>
+
+    <button id="btnGoogle" class="btn btn-google" onclick="loginGoogle()">
+      Entrar com Google
+    </button>
+
+    <div id="status" class="status"> </div>
+
+    <p class="hint">
+      Se for seu primeiro acesso, o sistema cria seu usuário como <b>dot</b>.
+      Para virar <b>admin</b>, ajuste no Firestore: <code>users/{uid}</code>.
+    </p>
   </div>
 
-  <div class="container" style="max-width:680px">
-    <div class="card" style="margin-top:18px">
-      <h1 class="h1">Entrar</h1>
-      <div class="small">Use o botão abaixo para entrar com Google.</div>
-
-      <hr/>
-
-      <button id="btnGoogle" class="btn btn-primary" style="width:100%">
-        Entrar com Google
-      </button>
-
-      <div id="status" class="small" style="margin-top:10px"></div>
-      <div id="msg" class="notice" style="display:none; margin-top:12px"></div>
-    </div>
-
-    <div class="small" style="margin-top:10px;color:#e2e8f0">
-      Dica: se a janela do Google fechar sozinha, normalmente é domínio não autorizado ou bloqueio de pop-up.
-    </div>
-  </div>
-
-  <script type="module">
-    import { startLoginPage } from "./app.js";
-    startLoginPage();
-  </script>
+  <!-- Ordem importa -->
+  <script type="module" src="./firebase.js"></script>
+  <script type="module" src="./auth.js"></script>
 </body>
 </html>
