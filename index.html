@@ -18,7 +18,7 @@
 <div class="box">
   <h1>Sistema DOT Moreira</h1>
   <button class="google" id="btnGoogle" type="button">Entrar com Google</button>
-  <div class="msg" id="status"></div>
+  <div class="msg" id="status">Aguardando…</div>
 </div>
 
 <script type="module">
@@ -31,75 +31,14 @@
     getRedirectResult,
     onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+  import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
   // ✅ SUA CONFIG (NÃO MUDE)
   const firebaseConfig = {
-    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-    authDomain: "sistema-dot.firebaseapp.com",
-    projectId: "sistema-dot",
-    storageBucket: "sistema-dot.firebasestorage.app",
-    messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
-    measurementId: "G-FS1CBVNFEG"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const provider = new GoogleAuthProvider();
-
-  const statusEl = document.getElementById("status");
-  const btnGoogle = document.getElementById("btnGoogle");
-
-  async function salvarUsuario(user) {
-    await setDoc(doc(db, "users", user.uid), {
-      uid: user.uid,
-      nome: user.displayName || "",
-      email: user.email || "",
-      role: "dot",
-      atualizadoEm: serverTimestamp()
-    }, { merge: true });
-  }
-
-  // 1) tenta concluir retorno de redirect (se houver)
-  try {
-    const result = await getRedirectResult(auth);
-    if (result && result.user) {
-      statusEl.textContent = "Login OK ✅ Entrando…";
-      await salvarUsuario(result.user);
-      window.location.href = "dashboard.html";
-    }
-  } catch (e) {
-    console.error(e);
-    statusEl.textContent = "Erro no retorno do login: " + (e.code || e.message);
-  }
-
-  // 2) botão: tenta POPUP; se popup bloqueado, usa redirect
-  btnGoogle.addEventListener("click", async () => {
-    try {
-      statusEl.textContent = "Abrindo login Google…";
-      const res = await signInWithPopup(auth, provider);
-      await salvarUsuario(res.user);
-      window.location.href = "dashboard.html";
-    } catch (e) {
-      console.error(e);
-      const msg = (e.code || e.message || "").toString();
-      if (msg.includes("popup") || msg.toLowerCase().includes("popup")) {
-        statusEl.textContent = "Popup bloqueado. Redirecionando…";
-        await signInWithRedirect(auth, provider);
-        return;
-      }
-      statusEl.textContent = "Erro no login: " + msg;
-      alert("Erro no login: " + msg);
-    }
-  });
-
-  // 3) se já estiver logado, vai direto
-  onAuthStateChanged(auth, (user) => {
-    if (user) window.location.href = "dashboard.html";
-  });
-</script>
-
-</body>
-</html>
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmW
