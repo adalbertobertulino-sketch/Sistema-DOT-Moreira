@@ -8,27 +8,17 @@
     body{font-family:Arial;background:#f2f2f2;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
     .box{background:#fff;padding:26px;width:360px;box-shadow:0 0 10px rgba(0,0,0,.15);border-radius:12px}
     h1{font-size:18px;margin:0 0 14px 0;text-align:center}
-    input{width:100%;padding:10px;margin:8px 0;border:1px solid #ddd;border-radius:10px}
     button{width:100%;padding:10px;border:0;border-radius:10px;cursor:pointer;margin-top:10px}
-    .email{background:#1a237e;color:#fff}
     .google{background:#DB4437;color:#fff}
     .msg{margin-top:12px;font-size:13px;color:#111;text-align:center;word-break:break-word}
-    .small{font-size:12px;color:#555;text-align:center;margin-top:6px}
   </style>
 </head>
 <body>
 
 <div class="box">
   <h1>Sistema DOT Moreira</h1>
-
-  <input type="email" id="email" placeholder="Email (opcional p/ senha)" />
-  <input type="password" id="senha" placeholder="Senha (opcional p/ senha)" />
-
-  <button class="email" id="btnEmail" type="button">Entrar com Email/Senha</button>
   <button class="google" id="btnGoogle" type="button">Entrar com Google</button>
-
-  <div class="small">Se já estiver logado, você será levado ao painel automaticamente.</div>
-  <div class="msg" id="status">Aguardando clique…</div>
+  <div class="msg" id="status">Aguardando…</div>
 </div>
 
 <script type="module">
@@ -38,13 +28,10 @@
     GoogleAuthProvider,
     signInWithRedirect,
     getRedirectResult,
-    signInWithEmailAndPassword,
     onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-  const statusEl = document.getElementById("status");
-
-  // ✅ Sua config (não mude)
   const firebaseConfig = {
     apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
     authDomain: "sistema-dot.firebaseapp.com",
@@ -56,48 +43,43 @@
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // 1) Botão Google (REDIRECT)
+  const statusEl = document.getElementById("status");
+
   document.getElementById("btnGoogle").addEventListener("click", async () => {
     try {
-      statusEl.textContent = "Clique recebido ✅ Redirecionando para o Google…";
+      statusEl.textContent = "Redirecionando para login Google…";
       await signInWithRedirect(auth, provider);
     } catch (e) {
       console.error(e);
-      statusEl.textContent = "Erro ao iniciar Google: " + (e.code || e.message);
-      alert("Erro ao iniciar Google: " + (e.code || e.message));
+      statusEl.textContent = "Erro ao iniciar login: " + (e.code || e.message);
+      alert("Erro: " + (e.code || e.message));
     }
   });
 
-  // 2) Retorno do redirect
-  getRedirectResult(auth).then((result) => {
+  // Volta do Google: salva/atualiza users/{uid} e redireciona
+  getRedirectResult(auth).then(async (result) => {
     if (result && result.user) {
-      statusEl.textContent = "Login OK ✅ Indo para o painel…";
+      const user = result.user;
+
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        nome: user.displayName || "",
+        email: user.email || "",
+        role: "dot", // padrão (depois você muda o seu para admin no Firestore)
+        atualizadoEm: serverTimestamp()
+      }, { merge: true });
+
       window.location.href = "dashboard.html";
     }
   }).catch((e) => {
     console.error(e);
-    statusEl.textContent = "Erro no retorno do Google: " + (e.code || e.message);
+    statusEl.textContent = "Erro no retorno do login: " + (e.code || e.message);
   });
 
-  // 3) Email/senha (só funciona se você tiver criado usuário no Firebase Auth)
-  document.getElementById("btnEmail").addEventListener("click", async () => {
-    const email = document.getElementById("email").value.trim();
-    const senha = document.getElementById("senha").value;
-
-    try {
-      statusEl.textContent = "Tentando entrar com Email/Senha…";
-      await signInWithEmailAndPassword(auth, email, senha);
-      window.location.href = "dashboard.html";
-    } catch (e) {
-      console.error(e);
-      statusEl.textContent = "Erro Email/Senha: " + (e.code || e.message);
-      alert("Erro Email/Senha: " + (e.code || e.message));
-    }
-  });
-
-  // 4) Se já está logado, vai direto
+  // Se já estiver logado, vai direto
   onAuthStateChanged(auth, (user) => {
     if (user) window.location.href = "dashboard.html";
   });
