@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Alunos - Sistema DOT Moreira</title>
+  <style>
+    body{font-family:Arial;margin:0;background:#f4f6f9}
+    header{background:#1e3a8a;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+    main{padding:18px}
+    .box{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);max-width:720px}
+    input{padding:10px;border:1px solid #ddd;border-radius:8px;width:100%;margin:8px 0}
+    button{background:#0f172a;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+    ul{padding-left:18px}
+    a{color:#fff}
+  </style>
+</head>
+<body>
+
+<header>
+  <div><strong>Sistema DOT Moreira</strong> — Alunos</div>
+  <div>
+    <a href="dashboard.html">Voltar</a>
+    <button id="btnSair" style="margin-left:10px">Sair</button>
+  </div>
+</header>
+
+<main>
+  <div class="box">
+    <h2>Cadastrar aluno</h2>
+    <input id="nome" placeholder="Nome do aluno" />
+    <button id="btnSalvar">Salvar</button>
+
+    <h3 style="margin-top:18px">Lista</h3>
+    <ul id="lista"></ul>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+    authDomain: "sistema-dot.firebaseapp.com",
+    projectId: "sistema-dot",
+    storageBucket: "sistema-dot.firebasestorage.app",
+    messagingSenderId: "1003611331429",
+    appId: "1:1003611331429:web:bf8478cef6fecfa6059f8c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Protege página
+  onAuthStateChanged(auth, (user) => {
+    if (!user) window.location.href = "index.html";
+  });
+
+  // Logout
+  document.getElementById("btnSair").addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "index.html";
+  });
+
+  // Salvar aluno
+  document.getElementById("btnSalvar").addEventListener("click", async () => {
+    const nome = document.getElementById("nome").value.trim();
+    if (!nome) return alert("Digite o nome do aluno.");
+
+    await addDoc(collection(db, "alunos"), {
+      nome,
+      criadoEm: serverTimestamp()
+    });
+
+    document.getElementById("nome").value = "";
+  });
+
+  // Listar alunos em tempo real
+  const q = query(collection(db, "alunos"), orderBy("criadoEm", "desc"));
+  onSnapshot(q, (snap) => {
+    const ul = document.getElementById("lista");
+    ul.innerHTML = "";
+    snap.forEach((doc) => {
+      const li = document.createElement("li");
+      li.textContent = doc.data().nome;
+      ul.appendChild(li);
+    });
+  });
+</script>
+
+</body>
+</html>
