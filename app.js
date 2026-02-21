@@ -1,7 +1,19 @@
-// app.js (ESM) - proteção, menu e utilitários
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+/** ✅ COLOQUE AQUI OS 3 ADMINS */
+const ADMIN_EMAILS = [
+  // "diretor1@souprof.al.gov.br",
+  // "diretor2@souprof.al.gov.br",
+  // "coordenacao@souprof.al.gov.br",
+];
+
+/** (opcional) restringir pais por e-mail; se vazio, pai acessa com Código do Aluno */
+const PARENT_EMAILS = [
+  // "pai@gmail.com",
+  // "mae@gmail.com"
+];
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,39 +22,87 @@ export function setStatus(msg) {
   if (el) el.textContent = msg || "";
 }
 
-export function setUserBox({ name, email, role, uid }) {
+export function setUserBox({ name, email, roles, uid }) {
   if ($("nome")) $("nome").textContent = name || "-";
   if ($("email")) $("email").textContent = email || "-";
-  if ($("role")) $("role").textContent = role || "-";
+  if ($("role")) $("role").textContent = (roles && roles.length) ? roles.join(", ") : "-";
   if ($("uid")) $("uid").textContent = uid || "-";
 }
 
+function normalizeRoles(data) {
+  if (!data) return [];
+  if (Array.isArray(data.roles)) return data.roles.filter(Boolean);
+  if (typeof data.role === "string" && data.role.trim()) return [data.role.trim()];
+  return [];
+}
+
+function hasAnyRole(userRoles, allowedRoles) {
+  if (!allowedRoles || allowedRoles.length === 0) return true;
+  return userRoles.some(r => allowedRoles.includes(r));
+}
+
+async function getMonitorByEmail(email) {
+  if (!email) return null;
+  const id = email.toLowerCase();
+  const ref = doc(db, "monitorsByEmail", id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() };
+}
+
+/** ✅ Usuario pode ser admin + dot + monitor ao mesmo tempo */
 export async function ensureUserDoc(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
 
+  const base = {
+    email: user.email || "",
+    name: user.displayName || "",
+    updatedAt: serverTimestamp()
+  };
+
   if (!snap.exists()) {
-    // Se não existir, cria como "dot" (não-admin).
     await setDoc(ref, {
-      email: user.email || "",
-      name: user.displayName || "",
-      role: "dot",
+      ...base,
+      roles: ["dot"],               // padrão: dot
       createdAt: serverTimestamp()
     }, { merge: true });
   } else {
-    // garante nome/email atualizados
-    await setDoc(ref, {
-      email: user.email || "",
-      name: user.displayName || ""
-    }, { merge: true });
+    await setDoc(ref, base, { merge: true });
   }
 
   const snap2 = await getDoc(ref);
-  return { id: snap2.id, ...snap2.data() };
+  const data = snap2.data() || {};
+  let roles = normalizeRoles(data);
+
+  // ✅ auto-admin por lista de e-mails
+  const emailLower = (user.email || "").toLowerCase();
+  const adminEmailsLower = ADMIN_EMAILS.map(e => e.toLowerCase());
+  if (adminEmailsLower.includes(emailLower) && !roles.includes("admin")) {
+    roles.push("admin");
+  }
+
+  // ✅ auto-monitor por cadastro em monitorsByEmail
+  const monitor = await getMonitorByEmail(user.email || "");
+  if (monitor && !roles.includes("monitor")) {
+    roles.push("monitor");
+    await setDoc(ref, { turmaIdMonitor: monitor.turmaId || null }, { merge: true });
+  }
+
+  // ✅ auto-parent opcional por e-mail
+  const parentEmailsLower = PARENT_EMAILS.map(e => e.toLowerCase());
+  if (parentEmailsLower.includes(emailLower) && !roles.includes("parent")) {
+    roles.push("parent");
+  }
+
+  await setDoc(ref, { roles }, { merge: true });
+
+  const finalSnap = await getDoc(ref);
+  return { id: finalSnap.id, ...finalSnap.data() };
 }
 
-// ✅ Protege páginas: exige login, lê role e (se quiser) exige admin
-export function protectPage({ requireAdmin = false } = {}) {
+/** ✅ Protege página: allowedRoles = ["admin"] ou ["admin","monitor"] etc */
+export function protectPage({ allowedRoles = [] } = {}) {
   setStatus("Carregando...");
 
   onAuthStateChanged(auth, async (user) => {
@@ -53,24 +113,23 @@ export function protectPage({ requireAdmin = false } = {}) {
       }
 
       const userDoc = await ensureUserDoc(user);
-      const role = userDoc.role || "dot";
+      const roles = normalizeRoles(userDoc);
 
       setUserBox({
         name: userDoc.name || user.displayName || "",
         email: user.email || "",
-        role,
+        roles,
         uid: user.uid
       });
 
-      if (requireAdmin && role !== "admin") {
-        alert("Você não é admin.");
+      if (!hasAnyRole(roles, allowedRoles)) {
+        alert("Acesso negado.");
         await signOut(auth);
         window.location.href = "index.html";
         return;
       }
 
-      setStatus("OK: Usuário carregado.");
-      // libera a página
+      setStatus("OK.");
       const content = $("content");
       if (content) content.style.display = "block";
       const loading = $("loading");
@@ -95,7 +154,6 @@ export function wireLogoutButton() {
   });
 }
 
-// menu simples
 export function renderMenu() {
   const menu = $("menu");
   if (!menu) return;
@@ -105,6 +163,7 @@ export function renderMenu() {
     <a href="turmas.html">Turmas</a>
     <a href="frequencia.html">Frequência</a>
     <a href="notas.html">Notas</a>
+    <a href="monitores.html">Monitores</a>
     <a href="pais.html">Área dos Pais</a>
   `;
 }
