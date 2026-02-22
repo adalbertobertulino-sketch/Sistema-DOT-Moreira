@@ -12,7 +12,7 @@ import {
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 /* ELEMENTOS */
-const turmaEl = document.getElementById("turma");
+const turmaEl = document.getElementById("turma"); // <select> no HTML
 const dataEl = document.getElementById("data");
 const btnCarregar = document.getElementById("btnCarregar");
 const lista = document.getElementById("listaAlunos");
@@ -20,11 +20,31 @@ const statusEl = document.getElementById("status");
 
 let usuarioAtual = null;
 let roles = [];
+let turmasPermitidas = [];
 
 /* STATUS */
 function setStatus(msg, tipo = "info") {
   statusEl.className = tipo;
   statusEl.innerText = msg;
+}
+
+/* Preenche o SELECT de turmas */
+function preencherTurmasNoSelect(turmas) {
+  turmaEl.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Selecione...";
+  turmaEl.appendChild(opt0);
+
+  turmas.forEach((t) => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    turmaEl.appendChild(opt);
+  });
+
+  // seleciona a primeira automaticamente (opcional)
+  if (turmas.length === 1) turmaEl.value = turmas[0];
 }
 
 /* LOGIN + PERFIL */
@@ -37,7 +57,19 @@ onAuthStateChanged(auth, async (user) => {
   usuarioAtual = user;
 
   const snap = await getDoc(doc(db, "users", user.uid));
-  roles = snap.exists() ? snap.data().roles || [] : [];
+  const dadosUser = snap.exists() ? snap.data() : {};
+
+  roles = dadosUser.roles || [];
+  turmasPermitidas = dadosUser.turmasPermitidas || [];
+
+  if (!turmasPermitidas.length) {
+    setStatus(
+      "Seu usuário não tem turmasPermitidas. Adicione no Firestore (users/SEU_UID).",
+      "alerta"
+    );
+  }
+
+  preencherTurmasNoSelect(turmasPermitidas);
 
   // data padrão = hoje
   if (!dataEl.value) {
@@ -57,6 +89,12 @@ async function carregarAlunos() {
 
   if (!turma || !data) {
     setStatus("Selecione turma e data.", "alerta");
+    return;
+  }
+
+  // trava se turma não estiver permitida
+  if (!turmasPermitidas.includes(turma)) {
+    setStatus("Turma não permitida para seu usuário.", "erro");
     return;
   }
 
@@ -87,11 +125,7 @@ async function carregarAlunos() {
 
       const freq = freqSnap.exists()
         ? freqSnap.data()
-        : {
-            presente: true,
-            faltas: 0,
-            justificativa: ""
-          };
+        : { presente: true, faltas: 0, justificativa: "" };
 
       const li = document.createElement("li");
 
@@ -124,7 +158,7 @@ async function carregarAlunos() {
             roles.includes("admin") || roles.includes("dot")
               ? `<input 
                    type="text" 
-                   placeholder="Justificativa"
+                   placeholder="Justificativa (somente DOT/Admin)"
                    value="${freq.justificativa || ""}"
                    class="justificativa"
                  >`
@@ -137,7 +171,6 @@ async function carregarAlunos() {
         </div>
       `;
 
-      /* CONTROLES */
       const chk = li.querySelector(".chkPresente");
       const faltasEl = li.querySelector(".faltas");
       const justEl = li.querySelector(".justificativa");
@@ -178,6 +211,6 @@ async function carregarAlunos() {
     setStatus("Alunos carregados.", "ok");
   } catch (e) {
     console.error(e);
-    setStatus("Erro ao carregar alunos.", "erro");
+    setStatus("Erro ao carregar alunos: " + (e?.message || e), "erro");
   }
 }
