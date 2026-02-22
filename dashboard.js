@@ -1,21 +1,44 @@
-// dashboard.js — PROTEGE A PÁGINA
+// dashboard.js — PERFIL + ROLES (VERSÃO SEGURA)
 
-import { auth, db } from "./firebase.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
+  getAuth,
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
 import {
+  getFirestore,
   doc,
-  getDoc
+  getDoc,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const nomeEl = document.getElementById("nome");
-const emailEl = document.getElementById("email");
-const perfilEl = document.getElementById("perfil");
+// 🔐 Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+  authDomain: "sistema-dot.firebaseapp.com",
+  projectId: "sistema-dot",
+  storageBucket: "sistema-dot.appspot.com",
+  messagingSenderId: "1003611331429",
+  appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+};
+
+// Init
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Elementos da tela
+const elNome = document.getElementById("nome");
+const elEmail = document.getElementById("email");
+const elUid = document.getElementById("uid");
+const elRoles = document.getElementById("roles");
 const btnSair = document.getElementById("btnSair");
 
+// Segurança
+console.log("dashboard.js carregado");
+
+// Controle de sessão
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
@@ -25,20 +48,27 @@ onAuthStateChanged(auth, async (user) => {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
 
+  // 🔹 Se NÃO existir, cria usuário automaticamente
   if (!snap.exists()) {
-    alert("Usuário não cadastrado.");
-    await signOut(auth);
-    return;
+    await setDoc(ref, {
+      nome: user.displayName || "",
+      email: user.email,
+      roles: ["dot"], // padrão
+      criadoEm: new Date().toISOString()
+    });
   }
 
-  const data = snap.data();
+  const dados = (await getDoc(ref)).data();
 
-  nomeEl.innerText = data.nome;
-  emailEl.innerText = data.email;
-  perfilEl.innerText = data.role;
+  // Preenche tela
+  elNome.innerText = dados.nome;
+  elEmail.innerText = dados.email;
+  elUid.innerText = user.uid;
+  elRoles.innerText = dados.roles.join(", ");
 });
 
-btnSair?.addEventListener("click", async () => {
+// Logout
+btnSair.addEventListener("click", async () => {
   await signOut(auth);
   window.location.href = "index.html";
 });
