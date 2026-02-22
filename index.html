@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sistema DOT Moreira</title>
-  <link rel="stylesheet" href="styles.css">
   <style>
     body{font-family:Arial,Helvetica,sans-serif;background:#f2f4f7;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
     .card{background:#fff;width:min(520px,92vw);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:26px}
@@ -12,7 +11,8 @@
     .btn{width:100%;padding:14px 16px;border:0;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
     .btn-google{background:#d9534f;color:#fff}
     .hint{margin-top:14px;color:#666;font-size:13px;line-height:1.4}
-    .status{margin-top:12px;font-size:14px;color:#0b6;min-height:18px}
+    .status{margin-top:12px;font-size:14px;min-height:18px}
+    .ok{color:#0b6}
     .err{color:#c00}
   </style>
 </head>
@@ -20,16 +20,34 @@
   <div class="card">
     <h1>Sistema DOT Moreira</h1>
 
-    <button id="btnGoogle" class="btn btn-google">Entrar com Google</button>
+    <!-- IMPORTANTÍSSIMO: onclick direto (pra não depender de addEventListener) -->
+    <button id="btnGoogle" class="btn btn-google" onclick="loginGoogle()">
+      Entrar com Google
+    </button>
 
     <div id="status" class="status"></div>
 
     <div class="hint">
-      Se ficar travado no tablet, é normal com popup. Este login usa <b>redirect</b> (mais estável).
+      Se no tablet não acontecer nada, é porque o navegador bloqueou scripts/redirect.
+      A correção está no final: Brave Shields e permissões.
     </div>
   </div>
 
-  <!-- Nosso JS -->
-  <script type="module" src="./firebase.js"></script>
-</body>
-</html>
+  <!-- Firebase (compat) - mais compatível com tablet -->
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // ===== SUA CONFIG =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+      authDomain: "sistema-dot.firebaseapp.com",
+      projectId: "sistema-dot",
+      storageBucket: "sistema-dot.firebasestorage.app",
+      messagingSenderId: "1003611331429",
+      appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
+      measurementId: "G-FS1CBVNFEG"
+    };
+
+    firebase.initializeApp(firebase
