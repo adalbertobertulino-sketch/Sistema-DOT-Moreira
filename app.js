@@ -83,8 +83,7 @@ export async function ensureUserDoc(user) {
     await setDoc(ref, { turmaIdMonitor: monitor.turmaId || null }, { merge: true });
   }
 
-  // ✅ todo usuário pode ser "parent" também (não dá permissão extra sozinho;
-  // quem define o acesso do pai é o vínculo parentEmails dentro do student)
+  // Todo usuário pode ser "parent" (acesso real é pelo vínculo parentEmails no student)
   if (!roles.includes("parent")) roles.push("parent");
 
   await setDoc(ref, { roles }, { merge: true });
@@ -151,6 +150,7 @@ export function renderMenu() {
   menu.innerHTML = `
     <a href="dashboard.html">Painel</a>
     <a href="turmas.html">Turmas</a>
+    <a href="alunos.html">Alunos</a>
     <a href="frequencia.html">Frequência</a>
     <a href="notas.html">Notas</a>
     <a href="monitores.html">Monitores</a>
