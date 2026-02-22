@@ -1,234 +1,114 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sistema DOT Moreira - Frequência</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f3f5f7;}
-    header{background:#0b1f3a;color:#fff;padding:14px 18px;font-weight:700}
-    .wrap{max-width:1100px;margin:18px auto;padding:0 14px}
-    .card{background:#fff;border-radius:10px;padding:14px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
-    #menu a{margin-right:12px;text-decoration:none;color:#0b1f3a;font-weight:700}
-    label{display:block;margin-top:10px;font-weight:700}
-    input,select,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
-    button{background:#1a3d7c;color:#fff;border:none;font-weight:700;cursor:pointer}
-    button:hover{opacity:.95}
-    .danger{background:#b00020}
-    .topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
-    #status{color:#0b6b2b;font-weight:700}
-    #loading{padding:14px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{border-bottom:1px solid #eee;padding:10px;text-align:left}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#eef2ff;font-weight:700;font-size:12px}
-    .btnSmall{width:auto;padding:8px 10px;border-radius:8px}
-  </style>
+  <link rel="stylesheet" href="styles.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
 </head>
 <body>
-  <header>Sistema DOT Moreira — Frequência</header>
+  <div id="topbar"></div>
+  <div class="container">
 
-  <div class="wrap">
-    <div class="card topline">
-      <div id="menu"></div>
-      <div><button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button></div>
+    <div class="card">
+      <h2>Frequência diária / faltas por aula</h2>
+      <div class="row">
+        <div class="field" style="min-width:240px;">
+          <label>Data</label>
+          <input id="date" type="date" />
+        </div>
+        <button class="btn ghost" onclick="loadDay()">Carregar</button>
+      </div>
+      <p class="small">Você pode marcar Presença/Falta e também quantas aulas faltou no dia.</p>
+      <p class="small" id="msg"></p>
     </div>
 
-    <div class="card" id="loading"><div id="status">Carregando...</div></div>
-
-    <div id="content" style="display:none;">
-      <div class="card">
-        <h3>Seu perfil</h3>
-        <div><b>Nome:</b> <span id="nome">-</span></div>
-        <div><b>Email:</b> <span id="email">-</span></div>
-        <div><b>Role(s):</b> <span id="role">-</span></div>
-        <div><b>UID:</b> <span id="uid">-</span></div>
-      </div>
-
-      <div class="card">
-        <h3>Configurar chamada</h3>
-        <div class="row">
-          <div>
-            <label>Turma</label>
-            <select id="turmaSelect"></select>
-          </div>
-          <div>
-            <label>Data</label>
-            <input id="data" type="date" />
-          </div>
-        </div>
-
-        <div class="row">
-          <div>
-            <label>Quantidade de aulas no dia</label>
-            <input id="qtdAulasDia" type="number" min="1" max="12" value="2" />
-          </div>
-          <div>
-            <label>Importar alunos (cola do Keep)</label>
-            <input id="paste" placeholder="Cole aqui uma lista, 1 aluno por linha e clique em Importar" />
-          </div>
-        </div>
-
-        <button id="btnImportar">Importar Alunos (do texto colado)</button>
-      </div>
-
-      <div class="card">
-        <h3>Chamada do dia</h3>
-        <div class="pill">Pode marcar Presente/Ausente OU preencher “faltou X aulas”</div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Aluno</th>
-              <th>Presença</th>
-              <th>Faltou (qtd aulas)</th>
-              <th>Salvar</th>
-            </tr>
-          </thead>
-          <tbody id="listaAlunos"></tbody>
-        </table>
-      </div>
+    <div class="card" style="margin-top:14px;">
+      <h2>Alunos</h2>
+      <div id="grid" class="small">Carregando…</div>
     </div>
+
   </div>
 
-  <script type="module">
-    import { protectPage, wireLogoutButton, renderMenu, setStatus, ensureUserDoc } from "./app.js";
-    import { auth, db } from "./firebase.js";
-    import {
-      collection, query, orderBy, getDocs, addDoc,
-      doc, getDoc, setDoc, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+  <script>
+    let state = { me:null, user:null, students:[] };
 
-    protectPage({ allowedRoles: ["admin","monitor"] });
-    wireLogoutButton();
-    renderMenu();
-
-    const $ = (id) => document.getElementById(id);
-
-    function turmaLabel(t){ return `${t.turma} / ${t.ano} / ${t.turno} / ${t.disciplina}`; }
-
-    async function carregarTurmas(){
-      const sel = $("turmaSelect");
-      sel.innerHTML = "";
-      const snap = await getDocs(query(collection(db,"turmas"), orderBy("createdAt","desc")));
-      snap.forEach((d)=>{
-        const t = d.data();
-        const opt = document.createElement("option");
-        opt.value = d.id;
-        opt.textContent = turmaLabel(t);
-        sel.appendChild(opt);
-      });
+    function todayISO(){
+      const d = new Date();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${d.getFullYear()}-${mm}-${dd}`;
     }
 
-    async function aplicarTurmaDoMonitor(){
-      const user = auth.currentUser;
-      if(!user) return;
-      const u = await ensureUserDoc(user);
-      if(u?.turmaIdMonitor){
-        $("turmaSelect").value = u.turmaIdMonitor;
-        $("turmaSelect").disabled = true;
+    async function loadDay(){
+      const dateISO = $("#date").value || todayISO();
+      $("#date").value = dateISO;
+      $("#msg").innerText = "Carregando frequência…";
+
+      const att = await listAttendanceByDate(dateISO);
+      const map = new Map(att.map(a => [a.studentId, a]));
+
+      $("#grid").innerHTML = `
+        <table class="table">
+          <thead>
+            <tr><th>Aluno</th><th>Turma</th><th>Status</th><th>Faltas (aulas)</th><th>Ação</th></tr>
+          </thead>
+          <tbody>
+            ${state.students.map(s => {
+              const a = map.get(s.id) || {};
+              const status = a.status || "present";
+              const faltas = a.faltasAulas || 0;
+              return `
+                <tr>
+                  <td>${s.name}</td>
+                  <td>${s.turma}</td>
+                  <td>
+                    <select id="st_${s.id}">
+                      <option value="present" ${status==="present"?"selected":""}>Presente</option>
+                      <option value="absent" ${status==="absent"?"selected":""}>Faltou</option>
+                    </select>
+                  </td>
+                  <td><input id="fa_${s.id}" type="number" min="0" value="${faltas}" style="width:90px"/></td>
+                  <td><button class="btn ghost" onclick="saveOne('${s.id}')">Salvar</button></td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+
+      $("#msg").innerText = "✅ Carregado.";
+    }
+
+    async function saveOne(studentId){
+      try{
+        const dateISO = $("#date").value || todayISO();
+        const status = document.getElementById("st_"+studentId).value;
+        const faltas = document.getElementById("fa_"+studentId).value;
+        await saveAttendance(studentId, dateISO, status, faltas, state.me);
+        $("#msg").innerText = "✅ Salvo!";
+      }catch(e){
+        $("#msg").innerText = "❌ " + e.message;
       }
     }
 
-    async function importarAlunosDoTexto(){
-      const turmaId = $("turmaSelect").value;
-      const raw = $("paste").value.trim();
-      if(!turmaId) return alert("Selecione uma turma.");
-      if(!raw) return alert("Cole pelo menos 1 nome (1 por linha).");
+    (async function(){
+      renderTopbar("frequencia");
+      const { user, me } = await requireAuth();
+      state.user=user; state.me=me;
 
-      const linhas = raw.split("\n").map(s=>s.trim()).filter(Boolean);
-      setStatus("Importando alunos...");
-
-      for(const nome of linhas){
-        await addDoc(collection(db,"students"),{
-          name:nome,
-          turmaId,
-          createdAt: serverTimestamp()
-        });
-      }
-
-      $("paste").value="";
-      setStatus("Alunos importados.");
-      await carregarAlunosDaTurma();
-    }
-
-    async function carregarAlunosDaTurma(){
-      const turmaId = $("turmaSelect").value;
-      const data = $("data").value;
-      const tbody = $("listaAlunos");
-      tbody.innerHTML = "";
-      if(!turmaId || !data) return;
-
-      const all = await getDocs(query(collection(db,"students"), orderBy("createdAt","desc")));
-      const alunos=[];
-      all.forEach((d)=>{
-        const s=d.data();
-        if(s.turmaId===turmaId) alunos.push({id:d.id, ...s});
-      });
-
-      alunos.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
-
-      for(const a of alunos){
-        const tr=document.createElement("tr");
-        tr.innerHTML=`
-          <td>${a.name||""}</td>
-          <td>
-            <select id="presenca_${a.id}">
-              <option value="presente">Presente</option>
-              <option value="ausente">Ausente</option>
-            </select>
-          </td>
-          <td><input id="faltas_${a.id}" type="number" min="0" max="12" value="0"/></td>
-          <td><button class="btnSmall" id="save_${a.id}">Salvar</button></td>
-        `;
-        tbody.appendChild(tr);
-
-        const key = `${data}_${turmaId}_${a.id}`;
-        const ref = doc(db,"attendance", key);
-        const snap = await getDoc(ref);
-        if(snap.exists()){
-          const r=snap.data();
-          document.getElementById(`presenca_${a.id}`).value = r.status || "presente";
-          document.getElementById(`faltas_${a.id}`).value = String(r.absences||0);
-        }
-
-        document.getElementById(`save_${a.id}`).addEventListener("click", async ()=>{
-          const presenca = document.getElementById(`presenca_${a.id}`).value;
-          const faltas = Number(document.getElementById(`faltas_${a.id}`).value || 0);
-          const qtdAulasDia = Number($("qtdAulasDia").value || 2);
-
-          let absences = faltas;
-          let status = presenca;
-          if(status==="ausente" && absences===0) absences = qtdAulasDia;
-          if(status==="presente" && absences>0) status="ausente";
-
-          await setDoc(ref,{
-            date:data,
-            turmaId,
-            studentId:a.id,
-            studentName:a.name||"",
-            status,
-            absences,
-            qtdAulasDia,
-            updatedAt: serverTimestamp()
-          }, {merge:true});
-
-          setStatus("Frequência salva.");
-        });
-      }
-    }
-
-    $("btnImportar").addEventListener("click", importarAlunosDoTexto);
-    $("turmaSelect").addEventListener("change", carregarAlunosDaTurma);
-    $("data").addEventListener("change", carregarAlunosDaTurma);
-
-    const hoje = new Date();
-    $("data").value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
-
-    await carregarTurmas();
-    await aplicarTurmaDoMonitor();
-    await carregarAlunosDaTurma();
-    setStatus("OK.");
+      state.students = await listStudents();
+      $("#date").value = todayISO();
+      await loadDay();
+    })();
   </script>
 </body>
 </html>
