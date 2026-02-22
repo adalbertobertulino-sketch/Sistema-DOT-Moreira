@@ -1,56 +1,97 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Alunos - Sistema DOT</title>
-  <link rel="stylesheet" href="./styles.css">
+  <title>Cadastro de Alunos - Sistema DOT</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+
   <header class="topbar">
     <div class="brand">Sistema DOT Moreira</div>
-    <nav class="nav">
+    <nav class="menu">
       <a href="./dashboard.html">Painel</a>
-      <a href="./alunos.html" class="active">Alunos</a>
+      <a class="active" href="./alunos.html">Alunos</a>
       <a href="./frequencia.html">Frequência</a>
-      <button id="btnSair" class="btn">Sair</button>
+      <a href="./avisos.html">Avisos</a>
+      <a href="./pais.html">Pais</a>
+      <a href="./admin.html">Admin</a>
     </nav>
+    <button id="btnSair" class="btn">Sair</button>
   </header>
 
-  <main class="container two-col">
+  <main class="container">
+
     <section class="card">
-      <h2>Cadastro de Alunos</h2>
-      <p class="hint">O perfil <strong>DOT</strong> e <strong>admin</strong> podem cadastrar alunos.</p>
+      <h1>Cadastro de Alunos</h1>
+      <p class="muted">Perfis <b>DOT</b> e <b>admin</b> podem cadastrar e alterar situação.</p>
 
-      <label>Nome completo (obrigatório)</label>
-      <input id="nome" placeholder="Nome completo" />
+      <div id="status" class="msg info">Carregando...</div>
 
-      <label>Turma (ex.: 1A) (obrigatório)</label>
-      <input id="turma" placeholder="1A, 2A..." />
+      <div class="grid">
+        <div>
+          <label>Nome completo (obrigatório)</label>
+          <input id="nome" type="text" placeholder="Nome completo" />
+        </div>
 
-      <label>Matrícula (opcional)</label>
-      <input id="matricula" placeholder="Somente números, se quiser" />
+        <div>
+          <label>Turma (obrigatório)</label>
+          <input id="turma" type="text" placeholder="Ex.: 1A" />
+        </div>
 
-      <button id="btnSalvar" class="btn primary">Salvar aluno</button>
-      <p id="status" class="msg info">Pronto.</p>
+        <div>
+          <label>Matrícula (opcional)</label>
+          <input id="matricula" type="text" placeholder="Somente números (se tiver)" />
+        </div>
+
+        <div>
+          <label>Situação</label>
+          <select id="situacao">
+            <option value="ativo" selected>Ativo</option>
+            <option value="desistente">Desistente</option>
+            <option value="evadido">Evadido</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnSalvar" class="btn primary">Salvar aluno</button>
+      </div>
     </section>
 
     <section class="card">
       <h2>Lista de alunos</h2>
 
-      <div class="row">
-        <input id="filtroTurma" placeholder="Filtrar por turma (ex.: 1A)" />
-        <button id="btnRecarregar" class="btn">Recarregar</button>
+      <div class="grid">
+        <div>
+          <label>Filtrar por turma</label>
+          <input id="filtroTurma" type="text" placeholder="Ex.: 1A" />
+        </div>
+
+        <div>
+          <label>Filtrar por situação</label>
+          <select id="filtroSituacao">
+            <option value="" selected>Todas</option>
+            <option value="ativo">Ativo</option>
+            <option value="desistente">Desistente</option>
+            <option value="evadido">Evadido</option>
+          </select>
+        </div>
+
+        <div class="actions">
+          <button id="btnRecarregar" class="btn">Recarregar</button>
+        </div>
       </div>
 
-      <div class="table-wrap">
+      <div class="tableWrap">
         <table class="table">
           <thead>
             <tr>
               <th>Nome</th>
               <th>Turma</th>
               <th>Matrícula</th>
-              <th>Ativo</th>
+              <th>Situação</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -59,14 +100,11 @@
           </tbody>
         </table>
       </div>
-
-      <p class="hint">
-        Dica: para evitar duplicar sem querer, eu posso colocar validação para não cadastrar 2 vezes o mesmo
-        (nome + turma + matrícula).
-      </p>
     </section>
+
   </main>
 
+  <script type="module" src="./firebase.js"></script>
   <script type="module" src="./alunos.js"></script>
 </body>
 </html>
