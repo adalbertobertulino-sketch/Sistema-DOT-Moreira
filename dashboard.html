@@ -1,36 +1,72 @@
-<!doctype html>
-<html lang="pt-br">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard — Sistema DOT</title>
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <header class="topbar">
-    <strong>Sistema DOT Moreira</strong>
-    <nav class="menu">
-      <a href="./dashboard.html">Painel</a>
-      <a href="./alunos.html">Alunos</a>
-      <a href="./frequencia.html">Frequência</a>
-      <button id="btnSair" class="btn small">Sair</button>
-    </nav>
-  </header>
+  <meta charset="UTF-8" />
+  <title>Dashboard - Sistema DOT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <main class="container">
-    <section class="card wide">
-      <h2>Bem-vindo(a)</h2>
-      <div class="grid">
-        <div><b>Nome:</b> <span id="nome">Carregando…</span></div>
-        <div><b>Email:</b> <span id="email">Carregando…</span></div>
-        <div><b>UID:</b> <span id="uid">Carregando…</span></div>
-        <div><b>Perfis:</b> <span id="roles">Carregando…</span></div>
-        <div><b>Turmas permitidas:</b> <span id="turmas">Carregando…</span></div>
-      </div>
-      <p id="status" class="status info">Carregando perfil…</p>
-    </section>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f5f5f5;
+    }
+
+    header {
+      background: #2f2f2f;
+      color: #fff;
+      padding: 16px 24px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    main {
+      padding: 24px;
+      max-width: 900px;
+      margin: auto;
+      background: #fff;
+      margin-top: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.08);
+    }
+
+    p {
+      margin: 6px 0;
+    }
+
+    .label {
+      font-weight: bold;
+    }
+
+    button {
+      margin-top: 16px;
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #d97b9b;
+      color: #fff;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>Sistema DOT Moreira</header>
+
+  <main>
+    <h2>Bem-vindo(a)</h2>
+
+    <p><span class="label">Nome:</span> <span id="nome">Carregando…</span></p>
+    <p><span class="label">Email:</span> <span id="email">Carregando…</span></p>
+    <p><span class="label">UID:</span> <span id="uid">Carregando…</span></p>
+    <p><span class="label">Perfis:</span> <span id="roles">Carregando…</span></p>
+    <p><span class="label">Turmas permitidas:</span> <span id="turmas">Carregando…</span></p>
+
+    <button id="btnSair">Sair</button>
   </main>
 
+  <script type="module" src="./firebase.js"></script>
   <script type="module" src="./dashboard.js"></script>
 </body>
 </html>
