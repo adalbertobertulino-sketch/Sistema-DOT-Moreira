@@ -1,125 +1,117 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sistema DOT Moreira - Dashboard</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sistema DOT Moreira — Dashboard</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f2f4f7}
+    .top{background:#0b1b3a;color:#fff;padding:14px 18px;font-weight:700}
+    .wrap{padding:18px}
+    .card{background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:18px}
+    .row{margin:8px 0}
+    .muted{color:#666}
+    .ok{color:#0b6}
+    .err{color:#c00}
+    .btn{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+    .btn-out{background:#c0392b;color:#fff}
+    .tag{display:inline-block;padding:4px 10px;border-radius:999px;background:#eee;margin-left:8px;font-size:12px}
+  </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">Sistema DOT Moreira — Dashboard</div>
-    <div class="top-actions">
-      <a class="btn btn-secondary" href="reports.html">Relatórios (PDF)</a>
-      <button class="btn btn-danger" onclick="logout()">Sair</button>
+  <div class="top">Sistema DOT Moreira — Dashboard</div>
+
+  <div class="wrap">
+    <div class="card">
+      <div id="status" class="row muted">Carregando...</div>
+
+      <div class="row"><b>Nome:</b> <span id="name">—</span></div>
+      <div class="row"><b>Email:</b> <span id="email">—</span></div>
+      <div class="row"><b>UID:</b> <span id="uid">—</span></div>
+      <div class="row"><b>Role:</b> <span id="role">—</span> <span id="badge" class="tag">—</span></div>
+
+      <hr/>
+      <button id="btnSair" class="btn btn-out">Sair</button>
     </div>
-  </header>
+  </div>
 
-  <main class="container">
-    <section class="profile box">
-      <h2>Perfil</h2>
-      <div class="grid2">
-        <div><b>Nome:</b> <span id="pNome">Carregando...</span></div>
-        <div><b>Email:</b> <span id="pEmail">Carregando...</span></div>
-        <div><b>Role:</b> <span id="pRole">Carregando...</span></div>
-        <div><b>School:</b> <span id="pSchool">Carregando...</span></div>
-      </div>
-      <div class="small" id="debug"></div>
-    </section>
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
 
-    <section class="tabs box">
-      <nav class="tabbar">
-        <button class="tabbtn active" data-tab="painel">Painel</button>
-        <button class="tabbtn" data-tab="turmas">Turmas</button>
-        <button class="tabbtn" data-tab="alunos">Alunos</button>
-        <button class="tabbtn" data-tab="aulas">Faltas por aula</button>
-        <button class="tabbtn" data-tab="notas">Notas</button>
-        <button class="tabbtn" data-tab="avisos">Avisos DOT</button>
-      </nav>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+      authDomain: "sistema-dot.firebaseapp.com",
+      projectId: "sistema-dot",
+      storageBucket: "sistema-dot.firebasestorage.app",
+      messagingSenderId: "1003611331429",
+      appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
+      measurementId: "G-FS1CBVNFEG"
+    };
 
-      <div class="tabcontent" id="painel">
-        <h2>Painel</h2>
-        <div class="kpis">
-          <div class="kpi"><div class="kpi-title">Turmas</div><div class="kpi-val" id="kTurmas">0</div></div>
-          <div class="kpi"><div class="kpi-title">Alunos</div><div class="kpi-val" id="kAlunos">0</div></div>
-          <div class="kpi"><div class="kpi-title">Avisos</div><div class="kpi-val" id="kAvisos">0</div></div>
-        </div>
-        <div class="small">Dados em tempo real (Firestore).</div>
-      </div>
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-      <div class="tabcontent hidden" id="turmas">
-        <h2>Turmas</h2>
-        <div class="adminOnly small warn">Somente admin pode criar/editar turmas.</div>
+    function $(id){ return document.getElementById(id); }
+    function setStatus(msg, type){
+      const el = $("status");
+      el.textContent = msg || "";
+      el.className = "row " + (type || "muted");
+    }
 
-        <div class="form adminOnly">
-          <input id="turmaNome" placeholder="Nome da turma (ex: 1º Ano A)" />
-          <input id="turmaAno" placeholder="Ano (ex: 2026)" />
-          <button class="btn" onclick="saveTurma()">Salvar turma</button>
-        </div>
+    async function ensureUserDoc(user){
+      const ref = db.collection("users").doc(user.uid);
+      const snap = await ref.get();
 
-        <ul id="listaTurmas" class="list"></ul>
-      </div>
+      const base = {
+        uid: user.uid,
+        email: user.email || "",
+        name: user.displayName || "",
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
 
-      <div class="tabcontent hidden" id="alunos">
-        <h2>Alunos</h2>
-        <div class="adminOnly small warn">Somente admin pode cadastrar alunos.</div>
+      if(!snap.exists){
+        await ref.set({
+          ...base,
+          role: "dot",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { role: "dot", ...base };
+      } else {
+        const data = snap.data() || {};
+        await ref.set(base, { merge: true });
+        return { ...data, ...base };
+      }
+    }
 
-        <div class="form adminOnly">
-          <input id="alunoNome" placeholder="Nome do aluno" />
-          <select id="alunoTurma"></select>
-          <button class="btn" onclick="saveAluno()">Salvar aluno</button>
-        </div>
+    auth.onAuthStateChanged(async (user) => {
+      if(!user){
+        window.location.href = "./index.html?v=" + Date.now();
+        return;
+      }
 
-        <ul id="listaAlunos" class="list"></ul>
-      </div>
+      try{
+        setStatus("Buscando perfil no Firestore...", "muted");
+        const profile = await ensureUserDoc(user);
 
-      <div class="tabcontent hidden" id="aulas">
-        <h2>Faltas por Aula</h2>
-        <div class="form">
-          <select id="aulaTurma"></select>
-          <select id="aulaAluno"></select>
-          <input id="aulaData" type="date" />
-          <input id="aulaFaltas" type="number" placeholder="Faltas (ex: 1)" />
-          <button class="btn" onclick="saveFaltaAula()">Salvar</button>
-        </div>
-        <ul id="listaAulas" class="list"></ul>
-      </div>
+        $("name").textContent = profile.name || "(sem nome)";
+        $("email").textContent = profile.email || "(sem email)";
+        $("uid").textContent = profile.uid || user.uid;
+        $("role").textContent = profile.role || "(sem role)";
+        $("badge").textContent = (profile.role || "sem role").toUpperCase();
 
-      <div class="tabcontent hidden" id="notas">
-        <h2>Notas</h2>
-        <div class="form">
-          <select id="notaTurma"></select>
-          <select id="notaAluno"></select>
-          <select id="notaTipo">
-            <option value="AV1">AV1</option>
-            <option value="AV2">AV2</option>
-            <option value="REC">Recuperação</option>
-            <option value="FINAL">Final</option>
-          </select>
-          <input id="notaValor" type="number" step="0.1" placeholder="Nota (ex: 8.5)" />
-          <button class="btn" onclick="saveNota()">Salvar</button>
-        </div>
-        <ul id="listaNotas" class="list"></ul>
-      </div>
+        setStatus("OK: painel carregado.", "ok");
+      }catch(e){
+        setStatus("Erro: " + (e.code || e.message), "err");
+      }
+    });
 
-      <div class="tabcontent hidden" id="avisos">
-        <h2>Avisos DOT</h2>
-        <div class="adminOnly small warn">Somente admin pode publicar avisos.</div>
-
-        <div class="form adminOnly">
-          <input id="avisoTitulo" placeholder="Título do aviso" />
-          <input id="avisoData" type="date" />
-          <textarea id="avisoTexto" placeholder="Texto do aviso"></textarea>
-          <button class="btn" onclick="saveAviso()">Publicar aviso</button>
-        </div>
-
-        <ul id="listaAvisos" class="list"></ul>
-      </div>
-    </section>
-  </main>
-
-  <script type="module" src="./firebase.js"></script>
-  <script type="module" src="./auth.js"></script>
-  <script type="module" src="./dashboard.js"></script>
+    $("btnSair").addEventListener("click", async () => {
+      await auth.signOut();
+      window.location.href = "./index.html?v=" + Date.now();
+    });
+  </script>
 </body>
 </html>
