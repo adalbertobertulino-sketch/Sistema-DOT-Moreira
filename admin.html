@@ -1,270 +1,67 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin - Sistema DOT</title>
-    <link rel="stylesheet" href="styles.css" />
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        background: #f4f6f8;
-      }
-      header {
-        background: #111827;
-        color: #fff;
-        padding: 14px 16px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      header a {
-        color: #fff;
-        text-decoration: none;
-        font-weight: 800;
-      }
-      main {
-        padding: 18px;
-        max-width: 980px;
-        margin: 0 auto;
-      }
-      .card {
-        background: #fff;
-        border-radius: 14px;
-        padding: 16px;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
-        margin-bottom: 14px;
-      }
-      h2 {
-        margin: 0 0 10px;
-      }
-      .row {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      input {
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: 1px solid #ddd;
-        min-width: 280px;
-      }
-      button {
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: none;
-        cursor: pointer;
-        font-weight: 800;
-      }
-      .btn-add {
-        background: #16a34a;
-        color: #fff;
-      }
-      .btn-del {
-        background: #ef4444;
-        color: #fff;
-      }
-      .muted {
-        color: #666;
-        font-size: 13px;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        border-bottom: 1px solid #eee;
-        padding: 10px 8px;
-        text-align: left;
-        font-size: 14px;
-      }
-      th {
-        color: #111;
-      }
-      #status {
-        margin-top: 8px;
-        font-size: 13px;
-        color: #444;
-      }
-    </style>
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Sistema DOT</title>
+</head>
+<body>
 
-  <body>
-    <header>
-      <a href="dashboard.html">← Voltar ao Dashboard</a>
-      <div>Admin</div>
-    </header>
+<h2>Painel Administrativo</h2>
+<p id="status">Verificando permissões...</p>
 
-    <main>
-      <div class="card">
-        <h2>Adicionar Admin por E-mail</h2>
-        <div class="row">
-          <input id="emailAdmin" type="email" placeholder="email@dominio.com" />
-          <button class="btn-add" id="btnAdd">Adicionar Admin</button>
-        </div>
-        <div class="muted">
-          Você pode adicionar até <b>3 admins</b> além de você.  
-          Quando a pessoa fizer login, o sistema aplica o role <b>admin</b>
-          automaticamente.
-        </div>
-        <div id="status"></div>
-      </div>
+<ul>
+  <li>Criar novos administradores</li>
+  <li>Liberar acessos</li>
+  <li>Configurações gerais</li>
+</ul>
 
-      <div class="card">
-        <h2>Admins liberados (por e-mail)</h2>
-        <div class="muted">
-          Lista do Firestore: <b>adminsByEmail</b>
-        </div>
+<button onclick="window.location.href='dashboard.html'">Voltar</button>
 
-        <table>
-          <thead>
-            <tr>
-              <th>E-mail</th>
-              <th>Criado em</th>
-              <th>Ação</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-    </main>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    <script type="module">
-      import {
-        auth,
-        db,
-        onAuthStateChanged,
-        doc,
-        getDoc,
-        setDoc,
-        deleteDoc,
-        serverTimestamp,
-        collection,
-        getDocs,
-        emailToDocId,
-        hasRole,
-      } from "./firebase.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+    authDomain: "sistema-dot.firebaseapp.com",
+    projectId: "sistema-dot",
+    storageBucket: "sistema-dot.firebasestorage.app",
+    messagingSenderId: "1003611331429",
+    appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+  };
 
-      const $ = (id) => document.getElementById(id);
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
-      function setStatus(msg) {
-        $("status").textContent = msg;
-      }
+  const statusEl = document.getElementById("status");
 
-      async function requireAdmin(user) {
-        const ref = doc(db, "users", user.uid);
-        const snap = await getDoc(ref);
-        const profile = snap.data();
-        if (!hasRole(profile, "admin")) {
-          alert("Acesso negado. Você não é admin.");
-          window.location.href = "dashboard.html";
-          return null;
-        }
-        return profile;
-      }
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "index.html";
+      return;
+    }
 
-      async function refreshAdminsTable() {
-        const tbody = $("tbody");
-        tbody.innerHTML = "<tr><td colspan='3'>Carregando...</td></tr>";
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
 
-        const col = collection(db, "adminsByEmail");
-        const snaps = await getDocs(col);
+    if (!snap.exists()) {
+      statusEl.textContent = "Acesso negado.";
+      return;
+    }
 
-        const rows = [];
-        snaps.forEach((d) => {
-          const data = d.data();
-          rows.push({
-            id: d.id,
-            email: data.email || "",
-            createdAt: data.createdAt?.toDate
-              ? data.createdAt.toDate().toLocaleString()
-              : "",
-          });
-        });
+    const roles = snap.data().role || [];
 
-        rows.sort((a, b) => a.email.localeCompare(b.email));
+    if (!roles.includes("admin")) {
+      alert("Acesso restrito a administradores.");
+      window.location.href = "dashboard.html";
+      return;
+    }
 
-        if (rows.length === 0) {
-          tbody.innerHTML =
-            "<tr><td colspan='3'>Nenhum admin liberado por e-mail ainda.</td></tr>";
-          return;
-        }
+    statusEl.textContent = "Acesso administrativo liberado.";
+  });
+</script>
 
-        tbody.innerHTML = "";
-        for (const r of rows) {
-          const tr = document.createElement("tr");
-
-          const tdEmail = document.createElement("td");
-          tdEmail.textContent = r.email;
-
-          const tdCreated = document.createElement("td");
-          tdCreated.textContent = r.createdAt;
-
-          const tdAct = document.createElement("td");
-          const btn = document.createElement("button");
-          btn.className = "btn-del";
-          btn.textContent = "Remover";
-          btn.onclick = async () => {
-            if (!confirm("Remover admin: " + r.email + " ?")) return;
-            await deleteDoc(doc(db, "adminsByEmail", r.id));
-            await refreshAdminsTable();
-          };
-          tdAct.appendChild(btn);
-
-          tr.appendChild(tdEmail);
-          tr.appendChild(tdCreated);
-          tr.appendChild(tdAct);
-          tbody.appendChild(tr);
-        }
-      }
-
-      async function addAdminByEmail() {
-        const email = $("emailAdmin").value.trim().toLowerCase();
-        if (!email || !email.includes("@")) {
-          alert("Digite um e-mail válido.");
-          return;
-        }
-
-        // limita a 3 adicionais (você pode mudar depois)
-        // conta quantos docs existem em adminsByEmail
-        const col = collection(db, "adminsByEmail");
-        const snaps = await getDocs(col);
-        if (snaps.size >= 3) {
-          alert(
-            "Limite atingido: já existem 3 admins liberados por e-mail. Remova um para adicionar outro."
-          );
-          return;
-        }
-
-        const id = emailToDocId(email);
-        await setDoc(
-          doc(db, "adminsByEmail", id),
-          {
-            email,
-            createdAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        $("emailAdmin").value = "";
-        setStatus("Admin liberado ✅ " + email);
-        await refreshAdminsTable();
-      }
-
-      onAuthStateChanged(auth, async (user) => {
-        if (!user) {
-          window.location.href = "index.html";
-          return;
-        }
-        const profile = await requireAdmin(user);
-        if (!profile) return;
-
-        $("btnAdd").onclick = addAdminByEmail;
-        await refreshAdminsTable();
-      });
-    </script>
-  </body>
+</body>
 </html>
