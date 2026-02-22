@@ -2,51 +2,76 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Frequência — Sistema DOT</title>
   <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+    .card{background:#fff;border:1px solid #e6e6e6;border-radius:12px;padding:16px;margin-bottom:16px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+    label{display:block;font-size:12px;color:#555;margin-bottom:6px}
+    input,select{padding:10px;border:1px solid #ddd;border-radius:10px;min-width:160px}
+    button{padding:10px 14px;border:0;border-radius:10px;cursor:pointer}
+    .btn-primary{background:#b54a73;color:#fff}
+    .btn-dark{background:#2f2f2f;color:#fff}
+    .hint{font-size:12px;color:#777}
+    .status{padding:10px;border-radius:10px;margin-top:10px;font-size:13px;white-space:pre-wrap}
+    .ok{background:#e8fff0;border:1px solid #b7f3cc;color:#134b25}
+    .err{background:#fff0f0;border:1px solid #f6b9b9;color:#6b0d0d}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #eee;padding:10px;text-align:left;font-size:14px}
+    th{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.04em}
+    td input[type="checkbox"]{transform:scale(1.2)}
+    .small{min-width:90px}
+  </style>
 </head>
-<body>
-  <header class="topbar">
-    <strong>Sistema DOT Moreira</strong>
-    <nav class="menu">
-      <a href="./dashboard.html">Painel</a>
-      <a href="./alunos.html">Alunos</a>
-      <a href="./frequencia.html" class="active">Frequência</a>
-      <button id="btnSair" class="btn small">Sair</button>
-    </nav>
-  </header>
 
-  <main class="container">
-    <section class="card wide">
+<body>
+  <div class="wrap">
+    <div class="card">
       <h2>Lançamento / Edição de Frequência</h2>
       <p class="hint">
-        Monitor: pode lançar (somente hoje). DOT/Admin: pode lançar e editar dias anteriores e justificar.
+        Monitor pode lançar (somente hoje). DOT/Admin podem lançar e editar dias anteriores e justificar.
       </p>
 
       <div class="row">
-        <label>Turma
-          <select id="selTurma"></select>
-        </label>
+        <div>
+          <label for="turmaSelect">Turma</label>
+          <select id="turmaSelect">
+            <option value="2A">2A</option>
+          </select>
+        </div>
 
-        <label>Data (pode ser anterior)
-          <input id="inData" type="date" />
-        </label>
+        <div>
+          <label for="dataInput">Data (pode ser anterior)</label>
+          <input id="dataInput" type="date" />
+        </div>
 
-        <label class="check">
-          <input id="chkSomenteAtivos" type="checkbox" checked />
-          Somente ativos
-        </label>
+        <div>
+          <label for="somenteAtivos">Mostrar</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="somenteAtivos" type="checkbox" checked />
+            <span class="hint">Somente ativos</span>
+          </div>
+        </div>
 
-        <input id="buscar" type="text" placeholder="Buscar (nome)" />
+        <div style="flex:1;min-width:200px">
+          <label for="buscaInput">Buscar (nome)</label>
+          <input id="buscaInput" type="text" placeholder="Digite parte do nome..." style="width:100%" />
+        </div>
 
-        <button id="btnCarregar" class="btn small">Carregar alunos</button>
-        <button id="btnSalvarTudo" class="btn">Salvar tudo</button>
+        <button id="btnCarregar" class="btn-dark">Carregar alunos</button>
+        <button id="btnSalvar" class="btn-primary">Salvar tudo</button>
       </div>
 
-      <p id="status" class="status info">Aguardando…</p>
+      <div id="statusBox" class="status ok" style="display:none"></div>
+    </div>
 
-      <div class="tablewrap">
+    <div class="card">
+      <h3>Lista</h3>
+      <div class="hint" id="contador"></div>
+
+      <div style="overflow:auto">
         <table>
           <thead>
             <tr>
@@ -55,17 +80,16 @@
               <th>Matrícula</th>
               <th>Situação</th>
               <th>Presente</th>
-              <th>Faltas (0-10)</th>
-              <th>Justificativa (somente DOT/Admin)</th>
+              <th>Faltas no dia (0-10)</th>
+              <th>Justificada (DOT/Admin)</th>
+              <th>Justificativa (DOT/Admin)</th>
             </tr>
           </thead>
-          <tbody id="tbody">
-            <tr><td colspan="7">Clique em “Carregar alunos”.</td></tr>
-          </tbody>
+          <tbody id="tbody"></tbody>
         </table>
       </div>
-    </section>
-  </main>
+    </div>
+  </div>
 
   <script type="module" src="./frequencia.js"></script>
 </body>
