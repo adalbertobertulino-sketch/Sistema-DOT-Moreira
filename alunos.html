@@ -1,95 +1,66 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Alunos — Sistema DOT</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f6f7fb;color:#111}
-    header{background:#222;color:#fff;padding:14px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between}
-    header .left{display:flex;gap:10px;align-items:center}
-    header a{color:#fff;text-decoration:none;opacity:.9}
-    header a:hover{opacity:1}
-    .wrap{max-width:980px;margin:18px auto;padding:0 14px}
-    .card{background:#fff;border:1px solid #e6e8ef;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    input,select,button{padding:10px;border-radius:10px;border:1px solid #d6d9e6;font-size:14px}
-    input,select{min-width:220px}
-    button{cursor:pointer;border:none;background:#e74c3c;color:#fff}
-    button.secondary{background:#2c3e50}
-    button.gray{background:#777}
-    .msg{margin-top:10px;padding:10px;border-radius:10px;display:none}
-    .ok{background:#e8fff0;border:1px solid #bfe9cf;color:#0b6b2f}
-    .err{background:#ffecec;border:1px solid #f1b6b6;color:#8a1111}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #eef0f6;text-align:left;font-size:14px}
-    th{background:#fafbff}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;background:#eef0f6}
-    .muted{color:#666;font-size:13px}
-  </style>
+  <title>Alunos - Sistema DOT</title>
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <header class="topbar">
+    <div class="brand">Sistema DOT Moreira</div>
+    <nav class="nav">
+      <a href="./dashboard.html">Painel</a>
+      <a href="./alunos.html" class="active">Alunos</a>
+      <a href="./frequencia.html">Frequência</a>
+      <button id="btnSair" class="btn">Sair</button>
+    </nav>
+  </header>
 
-<header>
-  <div class="left">
-    <strong>Sistema DOT Moreira</strong>
-    <span class="pill" id="perfilPill">Carregando perfil...</span>
-  </div>
+  <main class="container two-col">
+    <section class="card">
+      <h2>Cadastro de Alunos</h2>
+      <p class="hint">O perfil <strong>DOT</strong> e <strong>admin</strong> podem cadastrar alunos.</p>
 
-  <div class="right">
-    <a href="./dashboard.html">Dashboard</a>
-    <a href="./frequencia.html">Frequência</a>
-    <a href="./avisos.html">Avisos</a>
-    <a href="./admin.html">Admin</a>
-    <button class="gray" id="btnSair" type="button">Sair</button>
-  </div>
-</header>
+      <label>Nome completo (obrigatório)</label>
+      <input id="nome" placeholder="Nome completo" />
 
-<div class="wrap">
+      <label>Turma (ex.: 1A) (obrigatório)</label>
+      <input id="turma" placeholder="1A, 2A..." />
 
-  <div class="card">
-    <h2 style="margin:0 0 8px 0;">Cadastro de Alunos</h2>
-    <div class="muted">O perfil <b>DOT</b> e <b>admin</b> podem cadastrar alunos.</div>
+      <label>Matrícula (opcional)</label>
+      <input id="matricula" placeholder="Somente números, se quiser" />
 
-    <div class="row" style="margin-top:12px;">
-      <input id="nome" placeholder="Nome completo (obrigatório)" />
-      <input id="turma" placeholder="Turma (ex.: 1A) (obrigatório)" />
-      <input id="matricula" placeholder="Matrícula (opcional)" />
-      <button id="btnSalvar" type="button">Salvar aluno</button>
-    </div>
+      <button id="btnSalvar" class="btn primary">Salvar aluno</button>
+      <p id="status" class="msg info">Pronto.</p>
+    </section>
 
-    <div id="msg" class="msg"></div>
-  </div>
+    <section class="card">
+      <h2>Lista de alunos</h2>
 
-  <div class="card">
-    <div class="row" style="align-items:center;justify-content:space-between;">
-      <h2 style="margin:0;">Lista de alunos</h2>
       <div class="row">
         <input id="filtroTurma" placeholder="Filtrar por turma (ex.: 1A)" />
-        <button class="secondary" id="btnRecarregar" type="button">Recarregar</button>
+        <button id="btnRecarregar" class="btn">Recarregar</button>
       </div>
-    </div>
 
-    <div style="overflow:auto;margin-top:10px;">
-      <table>
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Turma</th>
-            <th>Matrícula</th>
-            <th>Ativo</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tbody">
-          <tr><td colspan="5" class="muted">Carregando...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Turma</th>
+              <th>Matrícula</th>
+              <th>Ativo</th>
+            </tr>
+          </thead>
+          <tbody id="lista">
+            <tr><td colspan="4" class="muted">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
 
-</div>
-
-<script type="module" src="./alunos.js"></script>
+  <script type="module" src="./alunos.js"></script>
 </body>
 </html>
