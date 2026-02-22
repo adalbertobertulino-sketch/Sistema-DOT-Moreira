@@ -1,56 +1,56 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sistema DOT Moreira - Login</title>
-  <link rel="stylesheet" href="styles.css" />
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  <!-- Firebase compat (funciona no GitHub Pages) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+    authDomain: "sistema-dot.firebaseapp.com",
+    projectId: "sistema-dot",
+    storageBucket: "sistema-dot.appspot.com",
+    messagingSenderId: "1003611331429",
+    appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+  };
 
-  <script src="firebase.js"></script>
-  <script src="app.js"></script>
-</head>
-<body>
-  <div class="center">
-    <div class="card loginCard">
-      <div class="h1">Sistema DOT Moreira</div>
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
 
-      <button class="btn primary" onclick="doLogin()">Entrar com Google</button>
+  async function criarUsuarioSeNaoExistir(user) {
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
 
-      <p class="small" id="status">Carregando…</p>
-      <p class="small">
-        Se travar no tablet, desligue o “Shields” do Brave para este site e permita pop-ups/cookies.
-        (Este login usa popup + redirect automaticamente.)
-      </p>
-    </div>
-  </div>
-
-  <script>
-    async function doLogin(){
-      document.getElementById("status").innerText = "Clique detectado. Tentando login…";
-      await loginGoogle();
-    }
-
-    (async function boot(){
-      document.getElementById("status").innerText = "Página carregada. Clique no botão para entrar.";
-
-      // Se veio de redirect
-      await handleRedirect();
-
-      // Se já está logado, vai pro dashboard
-      auth.onAuthStateChanged(async (user)=>{
-        if(user){
-          let me = await ensureUserDoc(user);
-          await applyInviteIfExists(me);
-          window.location.href = "dashboard.html";
-        }
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        uid: user.uid,
+        email: user.email,
+        name: user.displayName || "",
+        roles: ["dot"],
+        createdAt: new Date()
       });
-    })();
-  </script>
-</body>
-</html>
+    }
+  }
+
+  window.loginGoogle = async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      await criarUsuarioSeNaoExistir(result.user);
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      alert("Erro no login (popup): " + err.message);
+    }
+  };
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user && window.location.pathname.includes("index")) {
+      await criarUsuarioSeNaoExistir(user);
+      window.location.href = "dashboard.html";
+    }
+  });
+</script>
