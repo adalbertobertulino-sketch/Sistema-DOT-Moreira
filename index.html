@@ -50,4 +50,79 @@
       measurementId: "G-FS1CBVNFEG"
     };
 
-    firebase.initializeApp(firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    function setStatus(msg, type){
+      const el = document.getElementById("status");
+      el.textContent = msg || "";
+      el.className = "status " + (type || "");
+    }
+
+    async function ensureUserDoc(user){
+      const ref = db.collection("users").doc(user.uid);
+      const snap = await ref.get();
+
+      const base = {
+        uid: user.uid,
+        email: user.email || "",
+        name: user.displayName || "",
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      if(!snap.exists){
+        await ref.set({
+          ...base,
+          role: "dot", // padrão
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } else {
+        await ref.set(base, { merge: true });
+      }
+    }
+
+    // LOGIN (redirect)
+    window.loginGoogle = function(){
+      try{
+        setStatus("Clique OK. Abrindo login do Google...", "ok");
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithRedirect(provider);
+      }catch(e){
+        setStatus("Erro ao iniciar login: " + (e.code || e.message), "err");
+        alert("Erro: " + (e.code || e.message));
+      }
+    };
+
+    // Retorno do redirect
+    auth.getRedirectResult()
+      .then(async (result) => {
+        if(result && result.user){
+          setStatus("Login concluído. Preparando acesso...", "ok");
+          await ensureUserDoc(result.user);
+          window.location.href = "./dashboard.html?v=" + Date.now();
+        }
+      })
+      .catch((e) => {
+        // Se deu erro no retorno, mostramos
+        setStatus("Erro no retorno do login: " + (e.code || e.message), "err");
+      });
+
+    // Se já está logado, vai direto
+    auth.onAuthStateChanged(async (user) => {
+      if(user){
+        setStatus("Sessão encontrada. Indo para o painel...", "ok");
+        try{
+          await ensureUserDoc(user);
+          window.location.href = "./dashboard.html?v=" + Date.now();
+        }catch(e){
+          setStatus("Erro ao preparar usuário: " + (e.code || e.message), "err");
+        }
+      }
+    });
+
+    // Debug: se nem isso aparecer, JS não carregou
+    setStatus("Página carregada. Clique no botão para entrar.", "ok");
+  </script>
+</body>
+</html>
