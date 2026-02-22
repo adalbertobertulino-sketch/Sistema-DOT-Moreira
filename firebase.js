@@ -17,13 +17,13 @@ import {
 const statusEl = document.getElementById("status");
 const btn = document.getElementById("btnLogin");
 
-function setStatus(msg, kind = "") {
-  statusEl.className = "msg " + (kind || "");
+function setStatus(msg, type = "") {
+  statusEl.className = "msg " + type;
   statusEl.innerText = msg;
   console.log(msg);
 }
 
-// 🔥 CONFIG FIREBASE (a sua)
+// 🔥 Firebase config (sua)
 const firebaseConfig = {
   apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
   authDomain: "sistema-dot.firebaseapp.com",
@@ -33,87 +33,53 @@ const firebaseConfig = {
   appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
 };
 
-setStatus("JS carregou. Inicializando Firebase…", "ok");
+setStatus("JS carregado. Inicializando Firebase…", "ok");
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// (opcional) força seletor de conta sempre aparecer
 provider.setCustomParameters({ prompt: "select_account" });
 
-// ✅ Trata retorno do redirect (quando voltar do Google)
-getRedirectResult(auth)
-  .then((res) => {
-    if (res?.user) {
-      setStatus("Voltou do Google ✅ " + res.user.email, "ok");
-    } else {
-      setStatus("Pronto. Clique em 'Entrar com Google'.", "");
-    }
-  })
-  .catch((e) => {
-    console.error(e);
-    alert("ERRO Firebase (redirect): " + (e?.code || e?.message || e));
-    setStatus("ERRO no redirect: " + (e?.code || e?.message || e), "err");
-  });
+// 👉 Trata retorno do redirect
+getRedirectResult(auth).catch(e => {
+  console.error(e);
+  setStatus("Erro no redirect: " + e.code, "err");
+});
 
-// ✅ Clique do botão
+// 👉 Clique no botão
 btn.addEventListener("click", async () => {
-  alert("Clique detectado ✅ Vou abrir o login do Google.");
-
-  setStatus("Tentando login com POPUP…", "ok");
+  alert("Clique detectado ✅ Abrindo login do Google");
 
   try {
-    const result = await signInWithPopup(auth, provider);
-    setStatus("Login OK ✅ " + result.user.email, "ok");
+    setStatus("Tentando login (popup)…", "ok");
+    await signInWithPopup(auth, provider);
   } catch (e) {
-    console.error(e);
-
-    // Se popup foi bloqueado ou não permitido, cai no redirect
-    const popupBlocked =
-      e?.code === "auth/popup-blocked" ||
-      e?.code === "auth/popup-closed-by-user" ||
-      e?.code === "auth/cancelled-popup-request";
-
-    if (popupBlocked) {
-      alert("Popup bloqueado. Vou tentar login por REDIRECT agora.");
-      setStatus("Popup bloqueado. Tentando REDIRECT…", "ok");
-      try {
-        await signInWithRedirect(auth, provider);
-      } catch (e2) {
-        console.error(e2);
-        alert("Erro no redirect: " + (e2?.code || e2?.message || e2));
-        setStatus("Erro no redirect: " + (e2?.code || e2?.message || e2), "err");
-      }
-      return;
-    }
-
-    // Qualquer outro erro (inclui unauthorized-domain)
-    alert("Erro no login: " + (e?.code || e?.message || e));
-    setStatus("Erro no login: " + (e?.code || e?.message || e), "err");
+    console.warn("Popup falhou, tentando redirect", e.code);
+    setStatus("Popup bloqueado. Usando redirect…", "ok");
+    await signInWithRedirect(auth, provider);
   }
 });
 
-// ✅ Detecta login e cria usuário se não existir
+// 👉 Detecta login
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
 
-  setStatus("Logado ✅ " + user.email + " — checando Firestore…", "ok");
+  setStatus("Logado: " + user.email, "ok");
 
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
 
   if (!snap.exists()) {
-    setStatus("Primeiro acesso: criando usuário no Firestore…", "ok");
     await setDoc(ref, {
       nome: user.displayName || "",
-      email: user.email || "",
+      email: user.email,
       role: "dot",
       criadoEm: new Date().toISOString()
     });
   }
 
-  setStatus("OK ✅ Indo para dashboard.html…", "ok");
+  setStatus("Acesso liberado. Redirecionando…", "ok");
   window.location.href = "dashboard.html";
 });
