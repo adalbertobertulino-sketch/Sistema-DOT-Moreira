@@ -1,25 +1,50 @@
 // js/dashboard.js
 import { auth, db } from "./firebase.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 
-const elNome = document.getElementById("nome");
-const elEmail = document.getElementById("email");
-const elUid = document.getElementById("uid");
-const elRoles = document.getElementById("roles");
-const elTurmas = document.getElementById("turmas");
-const elMsg = document.getElementById("msg");
-const btnLogout = document.getElementById("btnLogout");
+import {
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-btnLogout?.addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "./index.html";
-});
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value ?? "";
+}
+function setStatus(msg, kind="") {
+  const el = document.getElementById("statusDash");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "status " + kind;
+}
 
-function setMsg(msg, erro=false) {
-  if (!elMsg) return;
-  elMsg.textContent = msg;
-  elMsg.style.color = erro ? "#fecaca" : "#9ca3af";
+async function carregarPerfil(uid, email, displayName) {
+  // Busca o doc do usuário em: users/{uid}
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+
+  // Valores padrão (caso não exista doc)
+  let roles = ["prof"];
+  let turmasPermitidas = [];
+
+  if (snap.exists()) {
+    const data = snap.data();
+    roles = Array.isArray(data.roles) ? data.roles : (data.role ? [data.role] : roles);
+    turmasPermitidas = Array.isArray(data.turmasPermitidas) ? data.turmasPermitidas : [];
+  }
+
+  setText("nome", displayName || "Sem nome");
+  setText("email", email || "Sem email");
+  setText("uid", uid);
+  setText("perfis", roles.join(", "));
+  setText("turmas", turmasPermitidas.length ? turmasPermitidas.join(", ") : "(vazio)");
+
+  // Guardar turmas permitidas para usar na página de frequência
+  localStorage.setItem("turmasPermitidas", JSON.stringify(turmasPermitidas));
+
+  setStatus("Perfil carregado.", "ok");
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -27,38 +52,11 @@ onAuthStateChanged(auth, async (user) => {
     window.location.href = "./index.html";
     return;
   }
-
-  elNome.textContent = user.displayName || "—";
-  elEmail.textContent = user.email || "—";
-  elUid.textContent = user.uid;
-
-  setMsg("Carregando perfil do Firestore...");
-
   try {
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
-
-    if (!snap.exists()) {
-      elRoles.textContent = "—";
-      elTurmas.textContent = "—";
-      setMsg(`Não existe users/${user.uid}. Crie esse documento no Firestore (coleção users).`, true);
-      return;
-    }
-
-    const perfil = snap.data();
-
-    const roles = Array.isArray(perfil.roles)
-      ? perfil.roles
-      : (perfil.role ? [perfil.role] : []);
-
-    const turmas = Array.isArray(perfil.turmasPermitidas) ? perfil.turmasPermitidas : [];
-
-    elRoles.textContent = roles.length ? roles.join(", ") : "—";
-    elTurmas.textContent = turmas.length ? turmas.join(", ") : "—";
-
-    setMsg("Perfil carregado com sucesso ✅");
+    setStatus("Carregando perfil...", "warn");
+    await carregarPerfil(user.uid, user.email, user.displayName);
   } catch (e) {
     console.error(e);
-    setMsg("Erro ao carregar perfil: " + (e?.message || e), true);
+    setStatus("Falha ao carregar perfil: " + (e?.message || e), "bad");
   }
 });
