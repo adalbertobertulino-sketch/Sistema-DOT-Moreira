@@ -2,27 +2,75 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Frequência - Sistema DOT</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- CSS CORRETO -->
-  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="./css/style.css">
 </head>
-<body>
+<body class="page">
 
-  <h2>Lançamento de Frequência</h2>
+  <div class="topbar">
+    <div>
+      <div class="brand">Sistema DOT Moreira</div>
+      <div class="muted small">Lançamento / Edição de Frequência</div>
+    </div>
 
-  <label>Turma:</label>
-  <select id="turmaSelect"></select>
+    <div class="topbar-actions">
+      <a class="btn secondary" href="./dashboard.html">Voltar ao Dashboard</a>
+      <button id="btnLogout" class="btn danger">Sair</button>
+    </div>
+  </div>
 
-  <label>Data:</label>
-  <input type="date" id="dataSelect" />
+  <div class="card">
+    <div class="row">
+      <div class="field">
+        <label class="label">Turma</label>
+        <select id="turmaSelect" class="input"></select>
+      </div>
 
-  <button id="btnCarregar">Carregar alunos</button>
+      <div class="field">
+        <label class="label">Data</label>
+        <input id="dataInput" type="date" class="input"/>
+      </div>
 
-  <div id="listaAlunos"></div>
+      <div class="field">
+        <label class="label">Somente ativos</label>
+        <input id="somenteAtivos" type="checkbox" checked />
+      </div>
 
-  <script type="module" src="./frequencia.js"></script>
+      <div class="field grow">
+        <label class="label">Buscar (nome)</label>
+        <input id="buscarInput" type="text" class="input" placeholder="Digite parte do nome"/>
+      </div>
+    </div>
 
+    <div class="row">
+      <button id="btnCarregar" class="btn secondary">Carregar alunos</button>
+      <button id="btnSalvar" class="btn">Salvar tudo</button>
+      <span id="statusFreq" class="status"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Aluno</th>
+            <th>Turma</th>
+            <th>Matrícula</th>
+            <th>Situação</th>
+            <th>Presente</th>
+            <th>Faltas no dia (0-10)</th>
+            <th>Justificada (DOT/Admin)</th>
+            <th>Justificativa</th>
+          </tr>
+        </thead>
+        <tbody id="listaAlunos">
+          <tr><td colspan="8" class="muted">Selecione a turma e clique em “Carregar alunos”.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module" src="./js/firebase.js"></script>
+  <script type="module" src="./js/frequencia.js"></script>
 </body>
 </html>
