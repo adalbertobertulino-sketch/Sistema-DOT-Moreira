@@ -13,7 +13,7 @@ function setStatus(msg) {
   console.log("[STATUS]", msg);
 }
 
-// 1) Se voltou de redirect, tenta concluir aqui
+// Tenta concluir login por redirect (se houver)
 getRedirectResult(auth)
   .then((result) => {
     if (result && result.user) {
@@ -26,7 +26,7 @@ getRedirectResult(auth)
     setStatus("Erro no redirect: " + (err?.code || err?.message || err));
   });
 
-// 2) Se já está logado, manda para o dashboard
+// Se já está logado, envia para dashboard
 onAuthStateChanged(auth, (user) => {
   if (user) {
     setStatus("Logado como " + (user.email || user.uid) + ". Indo para o painel...");
@@ -36,7 +36,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// 3) Clique do botão
+// Botão de login
 const btn = document.getElementById("btnLogin");
 if (!btn) {
   console.warn("Não achei #btnLogin no HTML.");
@@ -45,11 +45,10 @@ if (!btn) {
     setStatus("Abrindo login do Google (popup)...");
     try {
       await signInWithPopup(auth, provider);
-      // se deu certo, o onAuthStateChanged vai redirecionar
+      // onAuthStateChanged redireciona
     } catch (e) {
       console.error("Popup error:", e);
 
-      // popup bloqueado? cai no redirect
       const code = e?.code || "";
       if (
         code === "auth/popup-blocked" ||
