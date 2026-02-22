@@ -1,28 +1,49 @@
 // js/auth.js
 import { auth, provider } from "./firebase.js";
-import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-
-const btnLogin = document.getElementById("btnLogin");
-const status = document.getElementById("status");
+import {
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
 function setStatus(msg) {
-  if (status) status.textContent = msg;
+  const el = document.getElementById("status");
+  if (el) el.textContent = msg;
 }
 
-btnLogin?.addEventListener("click", async () => {
-  setStatus("Abrindo login...");
-  try {
-    await signInWithPopup(auth, provider);
-    setStatus("Logado! Indo para o painel...");
-    window.location.href = "./dashboard.html";
-  } catch (e) {
-    console.error(e);
-    setStatus("Erro no login: " + (e?.message || e));
-  }
-});
+const btnLogin = document.getElementById("btnLogin");
+if (btnLogin) {
+  btnLogin.addEventListener("click", async () => {
+    try {
+      setStatus("Abrindo login...");
+      await signInWithPopup(auth, provider);
+      setStatus("Logado. Redirecionando...");
+      window.location.href = "./dashboard.html";
+    } catch (e) {
+      console.error("Erro no login:", e);
+      setStatus(`Erro no login: ${e?.code || e?.message || e}`);
+    }
+  });
+}
+
+const btnSair = document.getElementById("btnSair");
+if (btnSair) {
+  btnSair.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "./index.html";
+    } catch (e) {
+      console.error("Erro ao sair:", e);
+      setStatus(`Erro ao sair: ${e?.code || e?.message || e}`);
+    }
+  });
+}
 
 onAuthStateChanged(auth, (user) => {
-  if (user && (location.pathname.endsWith("/") || location.pathname.endsWith("/index.html"))) {
-    window.location.href = "./dashboard.html";
+  const elUser = document.getElementById("userInfo");
+  if (elUser) {
+    elUser.textContent = user
+      ? `${user.displayName} (${user.email})`
+      : "Deslogado";
   }
 });
