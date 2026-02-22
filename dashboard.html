@@ -1,117 +1,82 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Sistema DOT Moreira — Dashboard</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f2f4f7}
-    .top{background:#0b1b3a;color:#fff;padding:14px 18px;font-weight:700}
-    .wrap{padding:18px}
-    .card{background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:18px}
-    .row{margin:8px 0}
-    .muted{color:#666}
-    .ok{color:#0b6}
-    .err{color:#c00}
-    .btn{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
-    .btn-out{background:#c0392b;color:#fff}
-    .tag{display:inline-block;padding:4px 10px;border-radius:999px;background:#eee;margin-left:8px;font-size:12px}
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema DOT Moreira - Painel</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
 </head>
 <body>
-  <div class="top">Sistema DOT Moreira — Dashboard</div>
+  <div id="topbar"></div>
 
-  <div class="wrap">
-    <div class="card">
-      <div id="status" class="row muted">Carregando...</div>
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h2>Bem-vindo(a)</h2>
+        <div id="meBox" class="small">Carregando…</div>
+        <div class="row" style="margin-top:10px;">
+          <span class="badge" id="roleBadge">role</span>
+          <span class="badge green" id="uidBadge">uid</span>
+        </div>
+      </div>
 
-      <div class="row"><b>Nome:</b> <span id="name">—</span></div>
-      <div class="row"><b>Email:</b> <span id="email">—</span></div>
-      <div class="row"><b>UID:</b> <span id="uid">—</span></div>
-      <div class="row"><b>Role:</b> <span id="role">—</span> <span id="badge" class="tag">—</span></div>
+      <div class="card">
+        <h2>Resumo (tempo real)</h2>
+        <div class="small" id="stats">Carregando…</div>
+      </div>
+    </div>
 
-      <hr/>
-      <button id="btnSair" class="btn btn-out">Sair</button>
+    <div class="card" style="margin-top:14px;">
+      <h2>Avisos DOT</h2>
+      <div id="notices">Carregando…</div>
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
-
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-      authDomain: "sistema-dot.firebaseapp.com",
-      projectId: "sistema-dot",
-      storageBucket: "sistema-dot.firebasestorage.app",
-      messagingSenderId: "1003611331429",
-      appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
-      measurementId: "G-FS1CBVNFEG"
-    };
+    let state = { me: null, user: null };
 
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+    (async function(){
+      renderTopbar("dashboard");
+      const { user, me } = await requireAuth();
+      state.me = me; state.user = user;
 
-    function $(id){ return document.getElementById(id); }
-    function setStatus(msg, type){
-      const el = $("status");
-      el.textContent = msg || "";
-      el.className = "row " + (type || "muted");
-    }
+      // aplica convite se houver
+      await applyInviteIfExists(me);
+      const me2 = (await db.collection("users").doc(user.uid).get()).data();
+      state.me = me2;
 
-    async function ensureUserDoc(user){
-      const ref = db.collection("users").doc(user.uid);
-      const snap = await ref.get();
+      $("#meBox").innerHTML = `
+        <b>Nome:</b> ${me2.name || "(sem nome)"}<br/>
+        <b>Email:</b> ${me2.email || "-"}<br/>
+      `;
+      $("#roleBadge").innerText = "Roles: " + (me2.roles || []).join(", ");
+      $("#uidBadge").innerText = "UID: " + me2.uid;
 
-      const base = {
-        uid: user.uid,
-        email: user.email || "",
-        name: user.displayName || "",
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
+      // Contadores em tempo real
+      db.collection("students").onSnapshot((snap)=>{
+        const total = snap.size;
+        $("#stats").innerHTML = `<b>Total de alunos:</b> ${total}`;
+      });
 
-      if(!snap.exists){
-        await ref.set({
-          ...base,
-          role: "dot",
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        return { role: "dot", ...base };
-      } else {
-        const data = snap.data() || {};
-        await ref.set(base, { merge: true });
-        return { ...data, ...base };
-      }
-    }
-
-    auth.onAuthStateChanged(async (user) => {
-      if(!user){
-        window.location.href = "./index.html?v=" + Date.now();
-        return;
-      }
-
-      try{
-        setStatus("Buscando perfil no Firestore...", "muted");
-        const profile = await ensureUserDoc(user);
-
-        $("name").textContent = profile.name || "(sem nome)";
-        $("email").textContent = profile.email || "(sem email)";
-        $("uid").textContent = profile.uid || user.uid;
-        $("role").textContent = profile.role || "(sem role)";
-        $("badge").textContent = (profile.role || "sem role").toUpperCase();
-
-        setStatus("OK: painel carregado.", "ok");
-      }catch(e){
-        setStatus("Erro: " + (e.code || e.message), "err");
-      }
-    });
-
-    $("btnSair").addEventListener("click", async () => {
-      await auth.signOut();
-      window.location.href = "./index.html?v=" + Date.now();
-    });
+      db.collection("notices").orderBy("createdAt","desc").limit(10)
+        .onSnapshot((snap)=>{
+          const arr = snap.docs.map(d => d.data());
+          $("#notices").innerHTML = arr.length ? arr.map(n => `
+            <div style="padding:10px 0;border-bottom:1px solid #e5e7eb">
+              <b>${n.title}</b><br/>
+              <span class="small">${n.message}</span>
+            </div>
+          `).join("") : `<span class="small">Sem avisos.</span>`;
+        });
+    })();
   </script>
 </body>
 </html>
