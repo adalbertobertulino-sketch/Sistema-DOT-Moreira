@@ -1,91 +1,98 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Dashboard – Sistema DOT</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard — Sistema DOT</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f6f7fb;color:#111}
+    header{background:#222;color:#fff;padding:14px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+    header .left{display:flex;gap:10px;align-items:center}
+    header a{color:#fff;text-decoration:none;opacity:.9;margin-right:10px}
+    header a:hover{opacity:1}
+    .wrap{max-width:980px;margin:18px auto;padding:0 14px}
+    .grid{display:grid;grid-template-columns:1fr;gap:14px}
+    @media(min-width:900px){.grid{grid-template-columns:1fr 1fr}}
+    .card{background:#fff;border:1px solid #e6e8ef;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+    .muted{color:#666;font-size:13px}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;background:#eef0f6;color:#111}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    button{cursor:pointer;border:none;border-radius:10px;padding:10px 12px;background:#e74c3c;color:#fff}
+    button.secondary{background:#2c3e50}
+    .links a{display:inline-block;margin:6px 8px 0 0;padding:10px 12px;background:#fff;border:1px solid #e6e8ef;border-radius:10px;text-decoration:none;color:#111}
+    .links a:hover{background:#fafbff}
+    .msg{margin-top:10px;padding:10px;border-radius:10px;display:none}
+    .ok{background:#e8fff0;border:1px solid #bfe9cf;color:#0b6b2f}
+    .err{background:#ffecec;border:1px solid #f1b6b6;color:#8a1111}
+  </style>
 </head>
-
 <body>
-  <h2>Bem-vindo(a)</h2>
 
-  <p><strong>Nome:</strong> <span id="nome">Carregando...</span></p>
-  <p><strong>Email:</strong> <span id="email">Carregando...</span></p>
-  <p><strong>UID:</strong> <span id="uid">Carregando...</span></p>
-  <p><strong>Perfis:</strong> <span id="roles">Carregando...</span></p>
+<header>
+  <div class="left">
+    <strong>Sistema DOT Moreira</strong>
+    <span class="pill" id="perfilPill">Carregando perfil...</span>
+  </div>
 
-  <p id="status"></p>
+  <div class="right">
+    <a href="./dashboard.html">Painel</a>
+    <a href="./alunos.html">Alunos</a>
+    <a href="./frequencia.html">Frequência</a>
+    <a href="./avisos.html">Avisos</a>
+    <a href="./admin.html">Admin</a>
+    <button id="btnSair" type="button">Sair</button>
+  </div>
+</header>
 
-  <button id="btnSair">Sair</button>
+<div class="wrap">
 
-  <!-- 🔴 JS INLINE PARA GARANTIR ORDEM CORRETA -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  <div class="card">
+    <h2 style="margin:0 0 8px 0;">Bem-vindo(a)</h2>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-      authDomain: "sistema-dot.firebaseapp.com",
-      projectId: "sistema-dot",
-      storageBucket: "sistema-dot.firebasestorage.app",
-      messagingSenderId: "1003611331429",
-      appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
-    };
+    <div class="row" style="margin-top:10px;">
+      <div style="min-width:280px;">
+        <div><b>Nome:</b> <span id="nome">Carregando...</span></div>
+        <div><b>Email:</b> <span id="email">Carregando...</span></div>
+        <div><b>UID:</b> <span id="uid">Carregando...</span></div>
+        <div><b>Perfis:</b> <span id="roles">Carregando...</span></div>
+      </div>
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+      <div>
+        <div class="muted">Status:</div>
+        <div id="status" class="muted">Carregando...</div>
+        <div id="msg" class="msg"></div>
+      </div>
+    </div>
+  </div>
 
-    const nomeEl = document.getElementById("nome");
-    const emailEl = document.getElementById("email");
-    const uidEl = document.getElementById("uid");
-    const rolesEl = document.getElementById("roles");
-    const statusEl = document.getElementById("status");
-    const btnSair = document.getElementById("btnSair");
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin:0 0 6px 0;">Atalhos</h3>
+      <div class="muted">Acesse as telas principais do sistema.</div>
+      <div class="links" style="margin-top:10px;">
+        <a href="./alunos.html">📚 Alunos (cadastrar e consultar)</a>
+        <a href="./frequencia.html">🗓️ Frequência (lançar presença/falta)</a>
+        <a href="./notas.html">📝 Notas/PDF (lançar e anexar boletim)</a>
+        <a href="./avisos.html">📢 Avisos</a>
+        <a href="./pais.html">👪 Pais (acesso às informações)</a>
+        <a href="./admin.html">🔐 Admin (liberar admins, DOTs, monitores)</a>
+      </div>
+    </div>
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = "index.html";
-        return;
-      }
+    <div class="card">
+      <h3 style="margin:0 0 6px 0;">Resumo rápido</h3>
+      <div class="muted">Aqui podemos mostrar contagens em tempo real depois.</div>
+      <div style="margin-top:12px;">
+        <div>Alunos cadastrados: <b id="countAlunos">—</b></div>
+        <div>Turmas: <b id="countTurmas">—</b></div>
+        <div>Lançamentos de frequência hoje: <b id="countFreqHoje">—</b></div>
+      </div>
+      <div class="muted" style="margin-top:10px;">(por enquanto pode ficar “—”; vamos preencher depois)</div>
+    </div>
+  </div>
 
-      nomeEl.textContent = user.displayName || "(sem nome)";
-      emailEl.textContent = user.email || "(sem email)";
-      uidEl.textContent = user.uid;
+</div>
 
-      statusEl.textContent = "Buscando perfil no Firestore...";
-
-      try {
-        const ref = doc(db, "users", user.uid);
-        const snap = await getDoc(ref);
-
-        if (!snap.exists()) {
-          rolesEl.textContent = "dot";
-          statusEl.textContent = "Perfil padrão (DOT)";
-          return;
-        }
-
-        const data = snap.data();
-
-        if (Array.isArray(data.role)) {
-          rolesEl.textContent = data.role.join(", ");
-        } else {
-          rolesEl.textContent = data.role || "dot";
-        }
-
-        statusEl.textContent = "Perfil carregado com sucesso.";
-      } catch (e) {
-        console.error(e);
-        rolesEl.textContent = "erro";
-        statusEl.textContent = "Erro ao carregar perfil.";
-      }
-    });
-
-    btnSair.addEventListener("click", async () => {
-      await signOut(auth);
-      window.location.href = "index.html";
-    });
-  </script>
+<script type="module" src="./dashboard.js"></script>
 </body>
 </html>
