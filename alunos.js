@@ -1,9 +1,5 @@
 import { auth, db } from "./firebase.js";
-import {
-  onAuthStateChanged,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   collection,
   query,
@@ -14,7 +10,7 @@ import {
   doc,
   getDoc,
   setDoc,
-  deleteDoc,
+  updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 function $(id) { return document.getElementById(id); }
@@ -36,15 +32,14 @@ function esc(s) {
     .replaceAll("'", "&#039;");
 }
 
-// remove acentos, deixa minúsculo, tira espaços duplicados
 function normalizeText(s) {
   return (s ?? "")
     .toString()
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // acentos
-    .replace(/\s+/g, " "); // espaços
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
 }
 
 function normalizeTurma(s) {
@@ -56,47 +51,22 @@ function onlyDigits(s) {
 }
 
 /**
- * Gera um ID único (chave) SEMPRE igual para o mesmo aluno.
- * - Com matrícula:  TURMA__M__MATRICULA
- * - Sem matrícula:  TURMA__N__NOME_NORMALIZADO
+ * ID ÚNICO:
+ * - com matrícula: TURMA__M__MATRICULA
+ * - sem matrícula: TURMA__N__NOME_NORMALIZADO
  */
 function buildAlunoId({ turma, matricula, nome }) {
   const t = normalizeTurma(turma);
   const m = onlyDigits(matricula);
-
   if (m) return `${t}__M__${m}`;
-
   const n = normalizeText(nome).replace(/\s+/g, "_");
   return `${t}__N__${n}`;
 }
 
-function renderRows(docs, canWrite) {
-  const tbody = $("lista");
-  if (!tbody) return;
-
-  if (!docs.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">Nenhum aluno encontrado.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = docs.map(d => {
-    const a = d.data();
-    const ativoTxt = (a.ativo === false) ? "Não" : "Sim";
-
-    const btnExcluir = canWrite
-      ? `<button class="btn" data-action="del" data-id="${esc(d.id)}">Excluir</button>`
-      : `<span class="muted">-</span>`;
-
-    return `
-      <tr>
-        <td>${esc(a.nome)}</td>
-        <td>${esc(a.turma)}</td>
-        <td>${esc(a.matricula)}</td>
-        <td>${esc(ativoTxt)}</td>
-        <td>${btnExcluir}</td>
-      </tr>
-    `;
-  }).join("");
+function labelSituacao(v) {
+  if (v === "desistente") return "Desistente";
+  if (v === "evadido") return "Evadido";
+  return "Ativo";
 }
 
 let unsub = null;
@@ -111,49 +81,72 @@ async function getMyRoles(uid) {
   return Array.isArray(data.roles) ? data.roles : [];
 }
 
-function startList(turmaFiltro = "") {
+function renderRows(docs) {
+  const tbody = $("lista");
+  if (!tbody) return;
+
+  if (!docs.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">Nenhum aluno encontrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = docs.map(d => {
+    const a = d.data();
+    const situacao = a.situacao || "ativo";
+
+    const selectSituacao = `
+      <select data-action="situacao" data-id="${esc(d.id)}" ${canWrite ? "" : "disabled"}>
+        <option value="ativo" ${situacao === "ativo" ? "selected" : ""}>Ativo</option>
+        <option value="desistente" ${situacao === "desistente" ? "selected" : ""}>Desistente</option>
+        <option value="evadido" ${situacao === "evadido" ? "selected" : ""}>Evadido</option>
+      </select>
+    `;
+
+    // Por segurança: sem excluir
+    const actions = `
+      <div class="rowActions">
+        ${selectSituacao}
+      </div>
+    `;
+
+    return `
+      <tr>
+        <td>${esc(a.nome)}</td>
+        <td>${esc(a.turma)}</td>
+        <td>${esc(a.matricula || "")}</td>
+        <td>${esc(labelSituacao(situacao))}</td>
+        <td>${actions}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function startList(turmaFiltro = "", situacaoFiltro = "") {
   if (unsub) unsub();
 
   const base = collection(db, "alunos");
   const turma = normalizeTurma(turmaFiltro);
+  const sit = (situacaoFiltro || "").trim().toLowerCase();
 
-  // OBS: orderBy("nome") funciona se todos tiverem o campo "nome"
-  const q = turma
-    ? query(base, where("turma", "==", turma), orderBy("nome"))
-    : query(base, orderBy("nome"));
+  // Combina filtros: turma + situacao (se escolhidos)
+  let qref = query(base, orderBy("nome"));
+
+  if (turma) qref = query(base, where("turma", "==", turma), orderBy("nome"));
+  if (turma && sit) qref = query(base, where("turma", "==", turma), where("situacao", "==", sit), orderBy("nome"));
+  if (!turma && sit) qref = query(base, where("situacao", "==", sit), orderBy("nome"));
 
   unsub = onSnapshot(
-    q,
-    (snap) => {
-      renderRows(snap.docs, canWrite);
-    },
+    qref,
+    (snap) => renderRows(snap.docs),
     (err) => {
       console.error(err);
-      renderRows([], canWrite);
+      renderRows([]);
       setStatus("Erro ao carregar alunos: " + (err.code || err.message), "err");
     }
   );
 }
 
-async function excluirAluno(id) {
-  if (!canWrite) {
-    setStatus("Sem permissão para excluir.", "err");
-    return;
-  }
-  const ok = confirm("Tem certeza que deseja EXCLUIR este aluno?\n\nIsso apaga do banco.");
-  if (!ok) return;
-
-  setStatus("Excluindo...", "info");
-  try {
-    await deleteDoc(doc(db, "alunos", id));
-    setStatus("Aluno excluído ✅", "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Erro ao excluir: " + (e.code || e.message), "err");
-  }
-}
-
-async function salvarOuAtualizarAluno({ nome, turma, matricula }) {
+async function salvarOuAtualizarAluno({ nome, turma, matricula, situacao }) {
   const turmaNorm = normalizeTurma(turma);
   const nomeNorm = normalizeText(nome);
   const matriculaDigits = onlyDigits(matricula);
@@ -161,33 +154,22 @@ async function salvarOuAtualizarAluno({ nome, turma, matricula }) {
   const alunoId = buildAlunoId({ turma: turmaNorm, matricula: matriculaDigits, nome: nomeNorm });
   const ref = doc(db, "alunos", alunoId);
 
-  // Se já existir, pergunta se quer atualizar (evita duplicado)
   const existente = await getDoc(ref);
   if (existente.exists()) {
-    const dataOld = existente.data() || {};
-    const msg = [
-      "Este aluno já existe para essa Turma (e Matrícula/Nome).",
-      "",
-      "Deseja ATUALIZAR os dados?",
-      "",
-      `Atual: ${dataOld.nome} | ${dataOld.turma} | ${dataOld.matricula || ""}`,
-      `Novo:  ${nome} | ${turmaNorm} | ${matriculaDigits || ""}`,
-    ].join("\n");
-    const ok = confirm(msg);
+    const ok = confirm("Esse aluno já existe (mesma turma e matrícula/nome). Quer ATUALIZAR em vez de duplicar?");
     if (!ok) {
-      setStatus("Cadastro cancelado (evitou duplicado).", "info");
+      setStatus("Cancelado para evitar duplicado.", "info");
       return;
     }
   }
 
-  // salva SEMPRE no mesmo ID => nunca duplica
   await setDoc(ref, {
     nome: nome.trim(),
     turma: turmaNorm,
     matricula: matriculaDigits || "",
-    ativo: true,
+    situacao: (situacao || "ativo"),
 
-    // campos auxiliares (para buscas futuras e padronização)
+    // auxiliares
     nomeLower: nomeNorm,
     turmaUpper: turmaNorm,
 
@@ -199,6 +181,30 @@ async function salvarOuAtualizarAluno({ nome, turma, matricula }) {
   setStatus(existente.exists() ? "Aluno atualizado ✅ (sem duplicar)" : "Aluno salvo ✅", "ok");
 }
 
+async function atualizarSituacao(alunoId, novaSituacao) {
+  if (!canWrite) {
+    setStatus("Sem permissão para alterar situação.", "err");
+    return;
+  }
+  const v = (novaSituacao || "").toLowerCase();
+  if (!["ativo", "desistente", "evadido"].includes(v)) {
+    setStatus("Situação inválida.", "err");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "alunos", alunoId), {
+      situacao: v,
+      atualizadoEm: serverTimestamp(),
+      atualizadoPor: currentUser.uid,
+    });
+    setStatus("Situação atualizada ✅", "ok");
+  } catch (e) {
+    console.error(e);
+    setStatus("Erro ao atualizar situação: " + (e.code || e.message), "err");
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   $("btnSair")?.addEventListener("click", async () => {
     await signOut(auth);
@@ -207,18 +213,20 @@ window.addEventListener("DOMContentLoaded", () => {
 
   $("btnRecarregar")?.addEventListener("click", () => {
     const turma = $("filtroTurma")?.value || "";
-    startList(turma);
+    const sit = $("filtroSituacao")?.value || "";
+    startList(turma, sit);
     setStatus("Recarregando...", "info");
   });
 
-  // Delegação de clique nos botões "Excluir"
-  $("lista")?.addEventListener("click", async (ev) => {
-    const btn = ev.target?.closest?.("button[data-action]");
-    if (!btn) return;
-    const action = btn.getAttribute("data-action");
-    const id = btn.getAttribute("data-id");
-    if (action === "del" && id) {
-      await excluirAluno(id);
+  // Mudança de situação na tabela
+  $("lista")?.addEventListener("change", async (ev) => {
+    const el = ev.target;
+    if (!el) return;
+
+    const action = el.getAttribute("data-action");
+    const id = el.getAttribute("data-id");
+    if (action === "situacao" && id) {
+      await atualizarSituacao(id, el.value);
     }
   });
 
@@ -232,17 +240,19 @@ window.addEventListener("DOMContentLoaded", () => {
     const roles = await getMyRoles(user.uid);
     canWrite = roles.includes("admin") || roles.includes("dot");
 
-    startList("");
+    startList("", "");
+    setStatus(canWrite ? "Pronto ✅ Você pode cadastrar/alterar situação." : "Pronto ✅ Você pode apenas visualizar.", canWrite ? "ok" : "info");
 
     $("btnSalvar")?.addEventListener("click", async () => {
       if (!canWrite) {
-        setStatus("Seu perfil não pode cadastrar alunos. Roles: " + roles.join(", "), "err");
+        setStatus("Seu perfil não pode cadastrar/altera situação. Roles: " + roles.join(", "), "err");
         return;
       }
 
       const nome = ($("nome")?.value || "").trim();
       const turma = ($("turma")?.value || "").trim();
       const matricula = ($("matricula")?.value || "").trim();
+      const situacao = ($("situacao")?.value || "ativo").trim().toLowerCase();
 
       if (!nome || !turma) {
         setStatus("Preencha NOME e TURMA.", "err");
@@ -251,12 +261,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
       setStatus("Salvando (anti-duplicado)...", "info");
       try {
-        await salvarOuAtualizarAluno({ nome, turma, matricula });
+        await salvarOuAtualizarAluno({ nome, turma, matricula, situacao });
 
-        // limpa
         $("nome").value = "";
         $("turma").value = "";
         $("matricula").value = "";
+        $("situacao").value = "ativo";
 
       } catch (e) {
         console.error(e);
