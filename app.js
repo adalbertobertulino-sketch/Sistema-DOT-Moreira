@@ -9,12 +9,6 @@ const ADMIN_EMAILS = [
   // "coordenacao@souprof.al.gov.br",
 ];
 
-/** (opcional) restringir pais por e-mail; se vazio, pai acessa com Código do Aluno */
-const PARENT_EMAILS = [
-  // "pai@gmail.com",
-  // "mae@gmail.com"
-];
-
 const $ = (id) => document.getElementById(id);
 
 export function setStatus(msg) {
@@ -50,7 +44,7 @@ async function getMonitorByEmail(email) {
   return { id: snap.id, ...snap.data() };
 }
 
-/** ✅ Usuario pode ser admin + dot + monitor ao mesmo tempo */
+/** ✅ Usuario pode ser admin + dot + monitor */
 export async function ensureUserDoc(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
@@ -64,7 +58,7 @@ export async function ensureUserDoc(user) {
   if (!snap.exists()) {
     await setDoc(ref, {
       ...base,
-      roles: ["dot"],               // padrão: dot
+      roles: ["dot"], // padrão: dot
       createdAt: serverTimestamp()
     }, { merge: true });
   } else {
@@ -75,25 +69,23 @@ export async function ensureUserDoc(user) {
   const data = snap2.data() || {};
   let roles = normalizeRoles(data);
 
-  // ✅ auto-admin por lista de e-mails
+  // auto-admin por e-mail
   const emailLower = (user.email || "").toLowerCase();
   const adminEmailsLower = ADMIN_EMAILS.map(e => e.toLowerCase());
   if (adminEmailsLower.includes(emailLower) && !roles.includes("admin")) {
     roles.push("admin");
   }
 
-  // ✅ auto-monitor por cadastro em monitorsByEmail
+  // auto-monitor por e-mail
   const monitor = await getMonitorByEmail(user.email || "");
   if (monitor && !roles.includes("monitor")) {
     roles.push("monitor");
     await setDoc(ref, { turmaIdMonitor: monitor.turmaId || null }, { merge: true });
   }
 
-  // ✅ auto-parent opcional por e-mail
-  const parentEmailsLower = PARENT_EMAILS.map(e => e.toLowerCase());
-  if (parentEmailsLower.includes(emailLower) && !roles.includes("parent")) {
-    roles.push("parent");
-  }
+  // ✅ todo usuário pode ser "parent" também (não dá permissão extra sozinho;
+  // quem define o acesso do pai é o vínculo parentEmails dentro do student)
+  if (!roles.includes("parent")) roles.push("parent");
 
   await setDoc(ref, { roles }, { merge: true });
 
@@ -101,7 +93,6 @@ export async function ensureUserDoc(user) {
   return { id: finalSnap.id, ...finalSnap.data() };
 }
 
-/** ✅ Protege página: allowedRoles = ["admin"] ou ["admin","monitor"] etc */
 export function protectPage({ allowedRoles = [] } = {}) {
   setStatus("Carregando...");
 
@@ -134,7 +125,6 @@ export function protectPage({ allowedRoles = [] } = {}) {
       if (content) content.style.display = "block";
       const loading = $("loading");
       if (loading) loading.style.display = "none";
-
     } catch (err) {
       console.error(err);
       alert("Erro ao carregar usuário: " + (err?.message || err));
@@ -164,6 +154,7 @@ export function renderMenu() {
     <a href="frequencia.html">Frequência</a>
     <a href="notas.html">Notas</a>
     <a href="monitores.html">Monitores</a>
+    <a href="vinculos.html">Vínculos Pais</a>
     <a href="pais.html">Área dos Pais</a>
   `;
 }
