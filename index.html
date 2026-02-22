@@ -5,48 +5,21 @@
   <title>Sistema DOT Moreira</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .card {
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      width: 320px;
-      text-align: center;
-      box-shadow: 0 0 10px rgba(0,0,0,.1);
-    }
-    button {
-      width: 100%;
-      padding: 15px;
-      background: #db4437;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    .msg {
-      margin-top: 15px;
-      font-size: 13px;
-      color: #555;
-    }
+    body{font-family:Arial,sans-serif;background:#f2f2f2;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+    .card{background:#fff;padding:28px;border-radius:10px;width:340px;text-align:center;box-shadow:0 0 10px rgba(0,0,0,.12)}
+    button{width:100%;padding:14px;background:#db4437;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer}
+    .msg{margin-top:14px;font-size:13px;color:#444;word-break:break-word}
+    .ok{color:#0a7b2e}
+    .err{color:#b00020}
   </style>
 </head>
 <body>
-
   <div class="card">
     <h2>Sistema DOT Moreira</h2>
-    <button onclick="loginGoogle()">Entrar com Google</button>
+    <button id="btnLogin">Entrar com Google</button>
     <div class="msg" id="status">Aguardando login…</div>
   </div>
 
-  <!-- IMPORTANTE -->
-  <script type="module" src="firebase.js"></script>
+  <script type="module" src="firebase.js?v=1"></script>
 </body>
 </html>
