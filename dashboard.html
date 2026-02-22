@@ -1,53 +1,58 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Painel — Sistema DOT Moreira</title>
-
-  <!-- ⚠️ IMPORTANTE: use sempre ./ para GitHub Pages -->
-  <link rel="stylesheet" href="./styles.css" />
+  <title>Sistema DOT Moreira • Painel</title>
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">Sistema DOT Moreira</div>
-    <nav class="menu">
-      <a class="btnlink" href="./dashboard.html">Painel</a>
-      <a class="btnlink" href="./alunos.html">Alunos</a>
-      <a class="btnlink" href="./frequencia.html">Frequência</a>
-      <a class="btnlink" href="./avisos.html">Avisos</a>
-      <a class="btnlink" href="./pais.html">Pais</a>
-      <a class="btnlink" href="./admin.html">Admin</a>
+    <nav class="nav">
+      <a href="./dashboard.html" class="active">Painel</a>
+      <a href="./frequencia.html">Frequência</a>
+      <button id="btnLogout" class="btn btn-ghost">Sair</button>
     </nav>
   </header>
 
   <main class="container">
     <section class="card">
-      <h1>Bem-vindo(a)</h1>
+      <h2>Perfil</h2>
 
-      <p><strong>Nome:</strong> <span id="nome">Carregando...</span></p>
-      <p><strong>Email:</strong> <span id="email">Carregando...</span></p>
-      <p><strong>UID:</strong> <span id="uid">Carregando...</span></p>
-      <p><strong>Perfis:</strong> <span id="roles">Carregando...</span></p>
-      <p><strong>Turmas permitidas:</strong> <span id="turmasPermitidas">Carregando...</span></p>
+      <div class="grid2">
+        <div>
+          <div class="label">Nome</div>
+          <div id="nome" class="mono">Carregando…</div>
+        </div>
+        <div>
+          <div class="label">Email</div>
+          <div id="email" class="mono">Carregando…</div>
+        </div>
+      </div>
 
-      <p id="status" class="status muted">Carregando perfil...</p>
+      <div class="grid2">
+        <div>
+          <div class="label">UID</div>
+          <div id="uid" class="mono">Carregando…</div>
+        </div>
+        <div>
+          <div class="label">Perfis (roles)</div>
+          <div id="roles" class="mono">Carregando…</div>
+        </div>
+      </div>
 
-      <button id="btnSair" class="btn danger">Sair</button>
-    </section>
+      <div>
+        <div class="label">Turmas permitidas</div>
+        <div id="turmas" class="mono">Carregando…</div>
+      </div>
 
-    <section class="card">
-      <h2>Atalhos</h2>
-      <ul class="list">
-        <li><a href="./alunos.html">Cadastro / lista de alunos</a></li>
-        <li><a href="./frequencia.html">Lançar / editar frequência</a></li>
-        <li><a href="./avisos.html">Avisos</a></li>
-      </ul>
-      <p class="muted">Se você só estiver vendo o “cartão”, o problema é caminho dos arquivos (404). Este painel depende do <code>./dashboard.js</code>.</p>
+      <p id="msg" class="alert">Carregando perfil…</p>
     </section>
   </main>
 
-  <!-- ⚠️ IMPORTANTE: use ./ -->
-  <script type="module" src="./dashboard.js"></script>
+  <!-- SCRIPTS (pasta js) -->
+  <script type="module" src="./js/firebase.js"></script>
+  <script type="module" src="./js/dashboard.js"></script>
 </body>
 </html>
