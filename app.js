@@ -1,160 +1,103 @@
-import { auth, db } from "./firebase.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+// firebase.js (Firebase compat para GitHub Pages)
+const firebaseConfig = {
+  apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+  authDomain: "sistema-dot.firebaseapp.com",
+  projectId: "sistema-dot",
+  storageBucket: "sistema-dot.firebasestorage.app",
+  messagingSenderId: "1003611331429",
+  appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
+  measurementId: "G-FS1CBVNFEG"
+};
 
-/** ✅ COLOQUE AQUI OS 3 ADMINS */
-const ADMIN_EMAILS = [
-  // "diretor1@souprof.al.gov.br",
-  // "diretor2@souprof.al.gov.br",
-  // "coordenacao@souprof.al.gov.br",
-];
+firebase.initializeApp(firebaseConfig);
 
-const $ = (id) => document.getElementById(id);
+window.auth = firebase.auth();
+window.db = firebase.firestore();
+window.storage = firebase.storage();
 
-export function setStatus(msg) {
-  const el = $("status");
-  if (el) el.textContent = msg || "";
-}
+// Util: timestamp server
+window.serverTs = () => firebase.firestore.FieldValue.serverTimestamp();
 
-export function setUserBox({ name, email, roles, uid }) {
-  if ($("nome")) $("nome").textContent = name || "-";
-  if ($("email")) $("email").textContent = email || "-";
-  if ($("role")) $("role").textContent = (roles && roles.length) ? roles.join(", ") : "-";
-  if ($("uid")) $("uid").textContent = uid || "-";
-}
+// Roles: guardamos array roles: ["dot"], ["admin","dot"], ["monitor"], ["parent"]
+window.hasRole = (rolesArr, role) => Array.isArray(rolesArr) && rolesArr.includes(role);
 
-function normalizeRoles(data) {
-  if (!data) return [];
-  if (Array.isArray(data.roles)) return data.roles.filter(Boolean);
-  if (typeof data.role === "string" && data.role.trim()) return [data.role.trim()];
-  return [];
-}
-
-function hasAnyRole(userRoles, allowedRoles) {
-  if (!allowedRoles || allowedRoles.length === 0) return true;
-  return userRoles.some(r => allowedRoles.includes(r));
-}
-
-async function getMonitorByEmail(email) {
-  if (!email) return null;
-  const id = email.toLowerCase();
-  const ref = doc(db, "monitorsByEmail", id);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
-}
-
-/** ✅ Usuario pode ser admin + dot + monitor */
-export async function ensureUserDoc(user) {
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
+// Cria/atualiza doc do usuário
+window.ensureUserDoc = async function ensureUserDoc(user) {
+  const ref = db.collection("users").doc(user.uid);
+  const snap = await ref.get();
 
   const base = {
+    uid: user.uid,
     email: user.email || "",
     name: user.displayName || "",
-    updatedAt: serverTimestamp()
+    updatedAt: serverTs()
   };
 
-  if (!snap.exists()) {
-    await setDoc(ref, {
+  if (!snap.exists) {
+    // Primeiro acesso: vira DOT por padrão
+    await ref.set({
       ...base,
-      roles: ["dot"], // padrão: dot
-      createdAt: serverTimestamp()
-    }, { merge: true });
+      roles: ["dot"],
+      createdAt: serverTs()
+    });
   } else {
-    await setDoc(ref, base, { merge: true });
+    await ref.set(base, { merge: true });
   }
 
-  const snap2 = await getDoc(ref);
-  const data = snap2.data() || {};
-  let roles = normalizeRoles(data);
+  const fresh = await ref.get();
+  return fresh.data();
+};
 
-  // auto-admin por e-mail
-  const emailLower = (user.email || "").toLowerCase();
-  const adminEmailsLower = ADMIN_EMAILS.map(e => e.toLowerCase());
-  if (adminEmailsLower.includes(emailLower) && !roles.includes("admin")) {
-    roles.push("admin");
-  }
+// Login Google à prova de Brave/Tablet
+window.loginGoogle = async function loginGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
 
-  // auto-monitor por e-mail
-  const monitor = await getMonitorByEmail(user.email || "");
-  if (monitor && !roles.includes("monitor")) {
-    roles.push("monitor");
-    await setDoc(ref, { turmaIdMonitor: monitor.turmaId || null }, { merge: true });
-  }
-
-  // Todo usuário pode ser "parent" (acesso real é pelo vínculo parentEmails no student)
-  if (!roles.includes("parent")) roles.push("parent");
-
-  await setDoc(ref, { roles }, { merge: true });
-
-  const finalSnap = await getDoc(ref);
-  return { id: finalSnap.id, ...finalSnap.data() };
-}
-
-export function protectPage({ allowedRoles = [] } = {}) {
-  setStatus("Carregando...");
-
-  onAuthStateChanged(auth, async (user) => {
+  try {
+    // Tenta popup primeiro
+    const result = await auth.signInWithPopup(provider);
+    await ensureUserDoc(result.user);
+    return true;
+  } catch (popupErr) {
+    console.warn("Popup falhou, tentando redirect:", popupErr);
     try {
+      await auth.signInWithRedirect(provider);
+      return true;
+    } catch (redirErr) {
+      alert("Erro no login: " + redirErr.message);
+      return false;
+    }
+  }
+};
+
+// Tratamento do retorno do redirect
+window.handleRedirect = async function handleRedirect() {
+  try {
+    const result = await auth.getRedirectResult();
+    if (result && result.user) {
+      await ensureUserDoc(result.user);
+      return true;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return false;
+};
+
+window.logout = async function logout() {
+  await auth.signOut();
+  window.location.href = "index.html";
+};
+
+// Protege página: exige login
+window.requireAuth = function requireAuth() {
+  return new Promise((resolve) => {
+    auth.onAuthStateChanged(async (user) => {
       if (!user) {
         window.location.href = "index.html";
         return;
       }
-
-      const userDoc = await ensureUserDoc(user);
-      const roles = normalizeRoles(userDoc);
-
-      setUserBox({
-        name: userDoc.name || user.displayName || "",
-        email: user.email || "",
-        roles,
-        uid: user.uid
-      });
-
-      if (!hasAnyRole(roles, allowedRoles)) {
-        alert("Acesso negado.");
-        await signOut(auth);
-        window.location.href = "index.html";
-        return;
-      }
-
-      setStatus("OK.");
-      const content = $("content");
-      if (content) content.style.display = "block";
-      const loading = $("loading");
-      if (loading) loading.style.display = "none";
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao carregar usuário: " + (err?.message || err));
-      await signOut(auth);
-      window.location.href = "index.html";
-    }
+      const me = await ensureUserDoc(user);
+      resolve({ user, me });
+    });
   });
-}
-
-export function wireLogoutButton() {
-  const btn = $("btnSair");
-  if (!btn) return;
-
-  btn.addEventListener("click", async () => {
-    await signOut(auth);
-    window.location.href = "index.html";
-  });
-}
-
-export function renderMenu() {
-  const menu = $("menu");
-  if (!menu) return;
-
-  menu.innerHTML = `
-    <a href="dashboard.html">Painel</a>
-    <a href="turmas.html">Turmas</a>
-    <a href="alunos.html">Alunos</a>
-    <a href="frequencia.html">Frequência</a>
-    <a href="notas.html">Notas</a>
-    <a href="monitores.html">Monitores</a>
-    <a href="vinculos.html">Vínculos Pais</a>
-    <a href="pais.html">Área dos Pais</a>
-  `;
-}
+};
