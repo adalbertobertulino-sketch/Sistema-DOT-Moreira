@@ -1,3 +1,6 @@
+// firebase.js  (MÓDULO)
+// ✅ Firebase v10 (ESM) compatível com GitHub Pages
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth,
@@ -5,81 +8,185 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
 import {
   getFirestore,
   doc,
   getDoc,
-  setDoc
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const statusEl = document.getElementById("status");
-const btn = document.getElementById("btnLogin");
-
-function setStatus(msg, type = "") {
-  statusEl.className = "msg " + type;
-  statusEl.innerText = msg;
-  console.log(msg);
-}
-
-// 🔥 Firebase config (sua)
+/**
+ * ✅ COLOQUE AQUI O SEU firebaseConfig (o seu já existe, basta manter).
+ * Se você já tem um firebaseConfig funcionando, cole exatamente o mesmo.
+ */
 const firebaseConfig = {
-  apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-  authDomain: "sistema-dot.firebaseapp.com",
-  projectId: "sistema-dot",
-  storageBucket: "sistema-dot.appspot.com",
-  messagingSenderId: "1003611331429",
-  appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+  apiKey: "COLE_AQUI_SUA_API_KEY",
+  authDomain: "COLE_AQUI_SEU_AUTH_DOMAIN",
+  projectId: "COLE_AQUI_SEU_PROJECT_ID",
+  storageBucket: "COLE_AQUI_SEU_STORAGE_BUCKET",
+  messagingSenderId: "COLE_AQUI_SEU_MESSAGING_SENDER_ID",
+  appId: "COLE_AQUI_SEU_APP_ID",
 };
-
-setStatus("JS carregado. Inicializando Firebase…", "ok");
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
 
+const provider = new GoogleAuthProvider();
+// Força seletor de conta (opcional, mas ajuda em escolas com várias contas)
 provider.setCustomParameters({ prompt: "select_account" });
 
-// 👉 Trata retorno do redirect
-getRedirectResult(auth).catch(e => {
-  console.error(e);
-  setStatus("Erro no redirect: " + e.code, "err");
-});
+function emailToDocId(email) {
+  // DocID seguro para Firestore
+  return String(email || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "_");
+}
 
-// 👉 Clique no botão
-btn.addEventListener("click", async () => {
-  alert("Clique detectado ✅ Abrindo login do Google");
-
+/**
+ * ✅ Tenta popup. Se popup falhar/bloquear, cai no redirect.
+ */
+async function signInGoogleSmart() {
   try {
-    setStatus("Tentando login (popup)…", "ok");
-    await signInWithPopup(auth, provider);
+    const res = await signInWithPopup(auth, provider);
+    return res.user;
   } catch (e) {
-    console.warn("Popup falhou, tentando redirect", e.code);
-    setStatus("Popup bloqueado. Usando redirect…", "ok");
-    await signInWithRedirect(auth, provider);
+    // Se popup bloqueado ou fechado, tenta redirect
+    const code = e?.code || "";
+    const popupIssues = [
+      "auth/popup-blocked",
+      "auth/popup-closed-by-user",
+      "auth/cancelled-popup-request",
+    ];
+    if (popupIssues.includes(code)) {
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
+    // Outros erros
+    throw e;
   }
-});
+}
 
-// 👉 Detecta login
-onAuthStateChanged(auth, async (user) => {
-  if (!user) return;
+async function handleRedirectIfAny() {
+  try {
+    const res = await getRedirectResult(auth);
+    return res?.user || null;
+  } catch (e) {
+    // se der erro de redirect, deixa subir
+    throw e;
+  }
+}
 
-  setStatus("Logado: " + user.email, "ok");
+/**
+ * ✅ Garante que o usuário exista em /users/{uid} e aplica roles automáticas.
+ * Regras:
+ * - Primeiro login: cria roles padrão { dot: true }
+ * - Se email estiver em /adminsByEmail/{emailDocId} => garante admin:true
+ */
+async function ensureUserProfile(user) {
+  if (!user) return null;
 
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
+  const uid = user.uid;
+  const email = user.email || "";
+  const displayName = user.displayName || "";
+
+  const userRef = doc(db, "users", uid);
+  const snap = await getDoc(userRef);
+
+  // roles padrão
+  const defaultRoles = { admin: false, dot: true, monitor: false, pais: false };
 
   if (!snap.exists()) {
-    await setDoc(ref, {
-      nome: user.displayName || "",
-      email: user.email,
-      role: "dot",
-      criadoEm: new Date().toISOString()
-    });
+    await setDoc(
+      userRef,
+      {
+        uid,
+        email,
+        name: displayName,
+        roles: defaultRoles,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } else {
+    // garante campos mínimos
+    await setDoc(
+      userRef,
+      {
+        uid,
+        email,
+        name: displayName || snap.data()?.name || "",
+        roles: snap.data()?.roles || defaultRoles,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
   }
 
-  setStatus("Acesso liberado. Redirecionando…", "ok");
-  window.location.href = "dashboard.html";
-});
+  // ✅ Se o e-mail está autorizado como admin, aplica no perfil
+  const adminKey = emailToDocId(email);
+  if (adminKey) {
+    const adminRef = doc(db, "adminsByEmail", adminKey);
+    const adminSnap = await getDoc(adminRef);
+    if (adminSnap.exists()) {
+      // marca admin true
+      const newData = (await getDoc(userRef)).data() || {};
+      const roles = newData.roles || defaultRoles;
+
+      if (!roles.admin) {
+        await updateDoc(userRef, {
+          "roles.admin": true,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+  }
+
+  // retorna perfil atualizado
+  const finalSnap = await getDoc(userRef);
+  return finalSnap.data();
+}
+
+/**
+ * ✅ Helpers de permissão
+ */
+function hasRole(profile, roleName) {
+  return !!profile?.roles?.[roleName];
+}
+
+export {
+  auth,
+  db,
+  provider,
+  signInGoogleSmart,
+  handleRedirectIfAny,
+  ensureUserProfile,
+  signOut,
+  onAuthStateChanged,
+  // firestore utils exportados para páginas internas
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  emailToDocId,
+  hasRole,
+};
