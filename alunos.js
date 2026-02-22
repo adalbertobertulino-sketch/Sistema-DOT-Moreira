@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   doc,
   getDoc,
+  deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 function $(id) { return document.getElementById(id); }
@@ -26,29 +27,47 @@ function setStatus(msg, kind = "info") {
   console.log(msg);
 }
 
-function renderRows(docs) {
+function esc(s) {
+  return (s ?? "").toString()
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderRows(docs, canWrite) {
   const tbody = $("lista");
   if (!tbody) return;
 
   if (!docs.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="muted">Nenhum aluno encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">Nenhum aluno encontrado.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = docs.map(d => {
     const a = d.data();
+    const ativoTxt = (a.ativo === false) ? "Não" : "Sim";
+
+    const btnExcluir = canWrite
+      ? `<button class="btn" data-action="del" data-id="${esc(d.id)}">Excluir</button>`
+      : `<span class="muted">-</span>`;
+
     return `
       <tr>
-        <td>${(a.nome || "").toString()}</td>
-        <td>${(a.turma || "").toString()}</td>
-        <td>${(a.matricula || "").toString()}</td>
-        <td>${a.ativo === false ? "Não" : "Sim"}</td>
+        <td>${esc(a.nome)}</td>
+        <td>${esc(a.turma)}</td>
+        <td>${esc(a.matricula)}</td>
+        <td>${esc(ativoTxt)}</td>
+        <td>${btnExcluir}</td>
       </tr>
     `;
   }).join("");
 }
 
 let unsub = null;
+let currentUser = null;
+let canWrite = false;
 
 async function getMyRoles(uid) {
   const ref = doc(db, "users", uid);
@@ -59,27 +78,44 @@ async function getMyRoles(uid) {
 }
 
 function startList(turmaFiltro = "") {
-  // limpa listener anterior
   if (unsub) unsub();
 
   const base = collection(db, "alunos");
+  const turma = turmaFiltro.trim();
 
-  // Lista por turma se filtro preenchido, senão lista geral
-  const q = turmaFiltro.trim()
-    ? query(base, where("turma", "==", turmaFiltro.trim()), orderBy("nome"))
+  const q = turma
+    ? query(base, where("turma", "==", turma), orderBy("nome"))
     : query(base, orderBy("nome"));
 
   unsub = onSnapshot(
     q,
     (snap) => {
-      renderRows(snap.docs);
+      renderRows(snap.docs, canWrite);
     },
     (err) => {
       console.error(err);
-      renderRows([]);
+      renderRows([], canWrite);
       setStatus("Erro ao carregar alunos: " + (err.code || err.message), "err");
     }
   );
+}
+
+async function excluirAluno(id) {
+  if (!canWrite) {
+    setStatus("Sem permissão para excluir.", "err");
+    return;
+  }
+  const ok = confirm("Tem certeza que deseja EXCLUIR este aluno?\n\nIsso apaga do banco.");
+  if (!ok) return;
+
+  setStatus("Excluindo...", "info");
+  try {
+    await deleteDoc(doc(db, "alunos", id));
+    setStatus("Aluno excluído ✅", "ok");
+  } catch (e) {
+    console.error(e);
+    setStatus("Erro ao excluir: " + (e.code || e.message), "err");
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -94,17 +130,27 @@ window.addEventListener("DOMContentLoaded", () => {
     setStatus("Recarregando...", "info");
   });
 
+  // Delegação de eventos para botões "Excluir"
+  $("lista")?.addEventListener("click", async (ev) => {
+    const btn = ev.target?.closest?.("button[data-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-action");
+    const id = btn.getAttribute("data-id");
+    if (action === "del" && id) {
+      await excluirAluno(id);
+    }
+  });
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       location.href = "./index.html";
       return;
     }
+    currentUser = user;
 
-    // valida roles
     const roles = await getMyRoles(user.uid);
-    const canWrite = roles.includes("admin") || roles.includes("dot");
+    canWrite = roles.includes("admin") || roles.includes("dot");
 
-    // começa listagem
     startList("");
 
     $("btnSalvar")?.addEventListener("click", async () => {
@@ -129,7 +175,7 @@ window.addEventListener("DOMContentLoaded", () => {
           turma,
           matricula: matricula || "",
           ativo: true,
-          criadoPor: user.uid,
+          criadoPor: currentUser.uid,
           criadoEm: serverTimestamp(),
         });
 
