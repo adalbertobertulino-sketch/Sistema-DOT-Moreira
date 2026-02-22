@@ -1,268 +1,223 @@
 // js/frequencia.js
-import { auth, db } from "./firebase.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+import { auth, db, serverTimestamp } from "./firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 import {
-  doc, getDoc,
-  collection, query, where, getDocs,
-  writeBatch, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  doc,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-const selTurma = document.getElementById("selTurma");
-const inpData = document.getElementById("inpData");
-const chkSomenteAtivos = document.getElementById("chkSomenteAtivos");
-const inpBusca = document.getElementById("inpBusca");
+const turmaSelect = document.getElementById("turmaSelect");
+const dataInput = document.getElementById("dataInput");
+const somenteAtivos = document.getElementById("somenteAtivos");
+const buscarInput = document.getElementById("buscarInput");
 const btnCarregar = document.getElementById("btnCarregar");
-const btnSalvarTudo = document.getElementById("btnSalvarTudo");
-const lista = document.getElementById("lista");
-const status = document.getElementById("status");
-const btnLogout = document.getElementById("btnLogout");
+const btnSalvar = document.getElementById("btnSalvar");
+const listaAlunos = document.getElementById("listaAlunos");
+const statusFreq = document.getElementById("statusFreq");
 
-btnLogout?.addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "./index.html";
-});
+let usuarioAtual = null;
+let alunosCarregados = []; // [{id, ...data}]
 
-function setStatus(texto, erro=false) {
-  if (!status) return;
-  status.textContent = texto || "";
-  status.style.color = erro ? "#fecaca" : "#9ca3af";
-  status.style.borderColor = erro ? "rgba(239,68,68,.4)" : "rgba(36,48,71,1)";
+function setStatus(msg, kind = "") {
+  if (!statusFreq) return;
+  statusFreq.textContent = msg || "";
+  statusFreq.className = "status " + kind;
 }
 
-function hojeISO() {
+function hojeYYYYMMDD() {
   const d = new Date();
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function normalizaTurma(t) {
+function normalizeTurma(t) {
   return (t || "").trim().toUpperCase();
 }
 
-function buildFreqDocId(turmaUpper, alunoDocId, dataISO) {
-  // ✅ alunoDocId é o ID REAL do aluno (ex.: G8Kdjf93JdkslQ2)
-  return `${turmaUpper}_${alunoDocId}_${dataISO}`;
+function montarIdFrequencia(turmaUpper, matricula, data) {
+  // ID do documento na coleção "frequencias"
+  // EXEMPLO: 2A_3899204_2026-02-22
+  return `${turmaUpper}_${matricula}_${data}`;
 }
 
-let ctx = {
-  user: null,
-  perfil: null,
-  roles: [],
-  isAdmin: false,
-  isDot: false,
-  isMonitor: false,
-  turmasPermitidas: [],
-  alunos: []
-};
+function renderTabela() {
+  const termo = (buscarInput.value || "").trim().toLowerCase();
+  const turmaSel = normalizeTurma(turmaSelect.value);
 
-async function carregarPerfil(uid) {
-  const ref = doc(db, "users", uid);
-  const snap = await getDoc(ref);
-  return snap.exists() ? snap.data() : null;
-}
-
-function preencherTurmas() {
-  selTurma.innerHTML = "";
-  const turmas = (ctx.turmasPermitidas || []).map(normalizaTurma).filter(Boolean);
-
-  if (!turmas.length) {
-    selTurma.innerHTML = `<option value="">(sem turmasPermitidas)</option>`;
-    return;
-  }
-  for (const t of turmas) {
-    const opt = document.createElement("option");
-    opt.value = t;
-    opt.textContent = t;
-    selTurma.appendChild(opt);
-  }
-}
-
-function renderLista() {
-  const termo = (inpBusca.value || "").trim().toLowerCase();
-
-  const alunos = ctx.alunos.filter(a => {
-    const nome = String(a.nomeLower || a.nome || "").toLowerCase();
-    if (termo && !nome.includes(termo)) return false;
+  const filtrados = alunosCarregados.filter(a => {
+    if (turmaSel && normalizeTurma(a.turmaUpper || a.turma) !== turmaSel) return false;
+    if (termo && !(a.nomeLower || (a.nome || "").toLowerCase()).includes(termo)) return false;
+    if (somenteAtivos.checked && (a.ativo === false || (a.situacao && a.situacao !== "ativo"))) return false;
     return true;
   });
 
-  if (!alunos.length) {
-    lista.innerHTML = `<p class="muted">Nenhum aluno encontrado.</p>`;
+  if (!filtrados.length) {
+    listaAlunos.innerHTML = `<tr><td colspan="8" class="muted">Nenhum aluno para exibir.</td></tr>`;
     return;
   }
 
-  const podeJustificar = ctx.isAdmin || ctx.isDot;
-  const dataISO = inpData.value;
+  listaAlunos.innerHTML = filtrados.map(a => {
+    const alunoId = a.id; // 🔥 id real do documento do aluno
+    const presenteId = `presente_${alunoId}`;
+    const faltasId = `faltas_${alunoId}`;
+    const justId = `just_${alunoId}`;
+    const justTxtId = `justtxt_${alunoId}`;
 
-  lista.innerHTML = alunos.map(a => `
-    <div class="item" data-alunoid="${a.id}">
-      <h4>${a.nome || "(sem nome)"} <span class="badge">${a.turmaUpper || "—"}</span></h4>
-      <div class="row">
-        <div class="badge">Matrícula: ${a.matricula || "-"}</div>
-        <div class="badge">Situação: ${a.situacao || (a.ativo ? "ativo" : "inativo")}</div>
-      </div>
-
-      <div class="row" style="margin-top:10px">
-        <label style="margin:0">
-          <input type="checkbox" class="chkPresente" checked />
-          Presente
-        </label>
-
-        <div style="min-width:180px">
-          <label>Faltas no dia (0–10)</label>
-          <input class="inpFaltas" type="number" min="0" max="10" value="0" />
-        </div>
-
-        <div style="flex:1;min-width:260px">
-          <label class="${podeJustificar ? "" : "muted"}">Justificativa (DOT/Admin)</label>
-          <input class="inpJust" type="text" ${podeJustificar ? "" : "disabled"} placeholder="Ex.: atestado / documento legal" />
-          <label style="margin-top:6px">
-            <input type="checkbox" class="chkJustificada" ${podeJustificar ? "" : "disabled"} />
-            Falta justificada
-          </label>
-        </div>
-      </div>
-
-      <div class="muted" style="margin-top:8px">
-        Registro para a data: <b>${dataISO}</b>
-      </div>
-    </div>
-  `).join("");
+    return `
+      <tr data-alunoid="${alunoId}">
+        <td>${a.nome || ""}</td>
+        <td>${normalizeTurma(a.turma || "")}</td>
+        <td>${a.matricula || ""}</td>
+        <td>${a.situacao || (a.ativo ? "ativo" : "inativo")}</td>
+        <td><input type="checkbox" id="${presenteId}" checked></td>
+        <td><input type="number" id="${faltasId}" min="0" max="10" value="0"></td>
+        <td><input type="checkbox" id="${justId}"></td>
+        <td><input type="text" id="${justTxtId}" placeholder="(opcional)"></td>
+      </tr>
+    `;
+  }).join("");
 }
 
-async function carregarAlunos() {
-  const turmaUpper = normalizaTurma(selTurma.value);
-  const somenteAtivos = !!chkSomenteAtivos.checked;
+async function carregarTurmasPermitidas() {
+  // vem do dashboard.js -> localStorage
+  const raw = localStorage.getItem("turmasPermitidas");
+  let turmas = [];
+  try { turmas = JSON.parse(raw || "[]"); } catch { turmas = []; }
 
-  if (!turmaUpper) return setStatus("Selecione uma turma.", true);
+  // se estiver vazio, ainda deixo um select (você pode preencher manualmente)
+  turmaSelect.innerHTML = "";
 
-  setStatus("Carregando alunos...");
-  lista.innerHTML = "";
-
-  try {
-    // ✅ CONSULTA CORRETA (isso remove o erro rosa)
-    const ref = collection(db, "alunos");
-    const filtros = [where("turmaUpper", "==", turmaUpper)];
-    if (somenteAtivos) filtros.push(where("ativo", "==", true));
-
-    const q = query(ref, ...filtros);
-    const snap = await getDocs(q);
-
-    ctx.alunos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.nomeLower || a.nome || "").toString().localeCompare((b.nomeLower || b.nome || "").toString()));
-
-    setStatus(ctx.alunos.length ? `Alunos carregados: ${ctx.alunos.length}` : "Nenhum aluno encontrado.");
-    renderLista();
-  } catch (e) {
-    console.error(e);
-    setStatus("Erro ao carregar alunos: " + (e?.message || e), true);
+  if (!turmas.length) {
+    turmaSelect.innerHTML = `<option value="2A">2A</option>`;
+    return;
   }
+
+  turmas.forEach(t => {
+    const tu = normalizeTurma(t);
+    const opt = document.createElement("option");
+    opt.value = tu;
+    opt.textContent = tu;
+    turmaSelect.appendChild(opt);
+  });
 }
 
-function validarPermissaoData(dataISO) {
-  const hoje = hojeISO();
-  if (ctx.isMonitor && !(ctx.isAdmin || ctx.isDot) && dataISO !== hoje) {
-    return { ok:false, msg:"Monitor só pode lançar frequência do dia (hoje)." };
+async function carregarAlunosDaTurma() {
+  const turmaUpper = normalizeTurma(turmaSelect.value);
+  if (!turmaUpper) {
+    setStatus("Selecione uma turma.", "warn");
+    return;
   }
-  return { ok:true };
+
+  setStatus("Carregando alunos...", "warn");
+  listaAlunos.innerHTML = `<tr><td colspan="8" class="muted">Carregando alunos...</td></tr>`;
+
+  // Consulta na coleção "alunos" filtrando por turmaUpper
+  // IMPORTANTE: seus documentos de aluno devem ter campo turmaUpper: "2A"
+  const ref = collection(db, "alunos");
+
+  // Se quiser ordenar por nomeLower, garanta que existe em todos docs
+  const q = query(ref, where("turmaUpper", "==", turmaUpper), orderBy("nomeLower"));
+
+  const snap = await getDocs(q);
+  alunosCarregados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  setStatus(`Alunos carregados: ${alunosCarregados.length}`, "ok");
+  renderTabela();
 }
 
 async function salvarTudo() {
-  const turmaUpper = normalizaTurma(selTurma.value);
-  const dataISO = inpData.value;
+  const turmaUpper = normalizeTurma(turmaSelect.value);
+  const data = dataInput.value;
 
-  if (!turmaUpper) return setStatus("Selecione a turma.", true);
-  if (!dataISO) return setStatus("Selecione a data.", true);
+  if (!turmaUpper) { setStatus("Selecione a turma.", "warn"); return; }
+  if (!data) { setStatus("Selecione a data.", "warn"); return; }
+  if (!usuarioAtual) { setStatus("Sem usuário logado.", "bad"); return; }
 
-  const perm = validarPermissaoData(dataISO);
-  if (!perm.ok) return setStatus(perm.msg, true);
+  // pega linhas exibidas (ou seja, filtradas)
+  const rows = Array.from(listaAlunos.querySelectorAll("tr[data-alunoid]"));
+  if (!rows.length) {
+    setStatus("Não há alunos na lista para salvar.", "warn");
+    return;
+  }
 
-  const itens = Array.from(document.querySelectorAll(".item"));
-  if (!itens.length) return setStatus("Carregue os alunos primeiro.", true);
-
-  setStatus("Salvando frequência...");
+  setStatus("Salvando...", "warn");
 
   try {
-    const batch = writeBatch(db);
-    const refFreq = collection(db, "frequencias");
-
-    for (const el of itens) {
-      const alunoId = el.getAttribute("data-alunoid"); // ✅ ID REAL do aluno
-      const aluno = ctx.alunos.find(a => a.id === alunoId);
+    for (const row of rows) {
+      const alunoId = row.getAttribute("data-alunoid");
+      const aluno = alunosCarregados.find(a => a.id === alunoId);
       if (!aluno) continue;
 
-      const presente = !!el.querySelector(".chkPresente")?.checked;
-      const faltasNoDia = Number(el.querySelector(".inpFaltas")?.value || 0);
+      const presente = document.getElementById(`presente_${alunoId}`)?.checked ?? true;
+      const faltasNoDia = Number(document.getElementById(`faltas_${alunoId}`)?.value ?? 0);
+      const justificada = document.getElementById(`just_${alunoId}`)?.checked ?? false;
+      const justificativa = (document.getElementById(`justtxt_${alunoId}`)?.value ?? "").trim();
 
-      let justificada = false;
-      let justificativa = "";
-      if (ctx.isAdmin || ctx.isDot) {
-        justificada = !!el.querySelector(".chkJustificada")?.checked;
-        justificativa = (el.querySelector(".inpJust")?.value || "").trim();
-      }
+      const matricula = String(aluno.matricula || "").trim();
+      const nome = String(aluno.nome || "").trim();
 
-      const docId = buildFreqDocId(turmaUpper, alunoId, dataISO);
-      const docRef = doc(refFreq, docId);
+      const docId = montarIdFrequencia(turmaUpper, matricula, data);
+      const ref = doc(db, "frequencias", docId);
 
-      batch.set(docRef, {
-        alunoId,
-        nome: aluno.nome || "",
-        nomeLower: aluno.nomeLower || (aluno.nome || "").toLowerCase(),
-        matricula: aluno.matricula || "",
+      // Documento de frequência
+      const payload = {
+        alunoId: alunoId,           // ✅ ID REAL DO DOC do aluno (ex: G8Kdjf93JdkslQ2)
+        matricula: matricula,
+        nome: nome,
         turma: turmaUpper,
-        turmaUpper,
-        data: dataISO,
+        turmaUpper: turmaUpper,
+        data: data,
+        presente: !!presente,       // ✅ boolean
+        faltasNoDia: Number.isFinite(faltasNoDia) ? faltasNoDia : 0,  // ✅ number
+        justificada: !!justificada, // ✅ boolean
+        justificativa: justificativa,
+        editadoPor: usuarioAtual.uid,
+        editadoEm: serverTimestamp()
+      };
 
-        presente,                 // boolean
-        faltasNoDia,              // number
-        justificada,              // boolean
-        justificativa,            // string
-
-        editadoPor: ctx.user.uid,
-        editadoEm: serverTimestamp(),
-        criadoPor: ctx.user.uid,
-        criadoEm: serverTimestamp()
-      }, { merge: true });
+      // Se estiver criando a primeira vez, setDoc cria.
+      // Se existir, setDoc com merge atualiza.
+      await setDoc(ref, payload, { merge: true });
     }
 
-    await batch.commit();
-    setStatus("Frequência salva com sucesso ✅");
+    setStatus("Salvo com sucesso!", "ok");
   } catch (e) {
     console.error(e);
-    setStatus("Erro ao salvar: " + (e?.message || e), true);
+    setStatus("Erro ao salvar: " + (e?.message || e), "bad");
   }
 }
 
-btnCarregar?.addEventListener("click", carregarAlunos);
-btnSalvarTudo?.addEventListener("click", salvarTudo);
-inpBusca?.addEventListener("input", renderLista);
+function wireEvents() {
+  btnCarregar.addEventListener("click", carregarAlunosDaTurma);
+  btnSalvar.addEventListener("click", salvarTudo);
+
+  somenteAtivos.addEventListener("change", renderTabela);
+  buscarInput.addEventListener("input", renderTabela);
+  turmaSelect.addEventListener("change", () => {
+    // opcional: auto-carregar ao trocar turma
+    // carregarAlunosDaTurma();
+    renderTabela();
+  });
+}
 
 onAuthStateChanged(auth, async (user) => {
-  if (!user) return window.location.href = "./index.html";
-  ctx.user = user;
-
-  // data padrão = hoje
-  inpData.value = hojeISO();
-
-  setStatus("Carregando perfil...");
-  const perfil = await carregarPerfil(user.uid);
-
-  if (!perfil) {
-    return setStatus(`Não existe users/${user.uid}. Crie esse doc na coleção users.`, true);
+  if (!user) {
+    window.location.href = "./index.html";
+    return;
   }
+  usuarioAtual = user;
 
-  ctx.perfil = perfil;
-  const roles = Array.isArray(perfil.roles) ? perfil.roles : (perfil.role ? [perfil.role] : []);
-  ctx.roles = roles.map(r => String(r).toLowerCase());
+  dataInput.value = hojeYYYYMMDD();
 
-  ctx.isAdmin = ctx.roles.includes("admin");
-  ctx.isDot = ctx.roles.includes("dot");
-  ctx.isMonitor = ctx.roles.includes("monitor");
+  await carregarTurmasPermitidas();
+  wireEvents();
 
-  ctx.turmasPermitidas = Array.isArray(perfil.turmasPermitidas) ? perfil.turmasPermitidas : [];
-  preencherTurmas();
-
-  setStatus("Selecione a turma e clique em “Carregar alunos”.");
+  setStatus("Selecione a turma e clique em “Carregar alunos”.", "");
 });
