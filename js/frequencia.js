@@ -1,309 +1,268 @@
+// js/frequencia.js
 import { auth, db } from "./firebase.js";
-
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 import {
-  collection,
-  getDocs,
-  getDoc,
-  doc,
-  query,
-  where,
-  orderBy,
-  limit,
-  setDoc,
-  serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  doc, getDoc,
+  collection, query, where, getDocs,
+  writeBatch, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-const turmaSelect = document.getElementById("turmaSelect");
-const dataInput = document.getElementById("dataInput");
-const somenteAtivos = document.getElementById("somenteAtivos");
-const buscaInput = document.getElementById("buscaInput");
+const selTurma = document.getElementById("selTurma");
+const inpData = document.getElementById("inpData");
+const chkSomenteAtivos = document.getElementById("chkSomenteAtivos");
+const inpBusca = document.getElementById("inpBusca");
 const btnCarregar = document.getElementById("btnCarregar");
-const btnSalvar = document.getElementById("btnSalvar");
-const tbody = document.getElementById("tbody");
-const statusBox = document.getElementById("statusBox");
-const contador = document.getElementById("contador");
+const btnSalvarTudo = document.getElementById("btnSalvarTudo");
+const lista = document.getElementById("lista");
+const status = document.getElementById("status");
+const btnLogout = document.getElementById("btnLogout");
 
-function showStatus(msg, kind = "ok") {
-  statusBox.style.display = "block";
-  statusBox.className = `status ${kind === "err" ? "err" : "ok"}`;
-  statusBox.textContent = msg;
+btnLogout?.addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "./index.html";
+});
+
+function setStatus(texto, erro=false) {
+  if (!status) return;
+  status.textContent = texto || "";
+  status.style.color = erro ? "#fecaca" : "#9ca3af";
+  status.style.borderColor = erro ? "rgba(239,68,68,.4)" : "rgba(36,48,71,1)";
 }
 
-function todayISO() {
+function hojeISO() {
   const d = new Date();
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function turmaToUpper(turma) {
-  return (turma || "").trim().toUpperCase();
+function normalizaTurma(t) {
+  return (t || "").trim().toUpperCase();
 }
 
-function escapeHtml(str) {
-  return String(str || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function buildFreqDocId(turmaUpper, alunoDocId, dataISO) {
+  // ✅ alunoDocId é o ID REAL do aluno (ex.: G8Kdjf93JdkslQ2)
+  return `${turmaUpper}_${alunoDocId}_${dataISO}`;
 }
 
-// ✅ Timeout para NÃO ficar travado
-async function withTimeout(promise, ms, label) {
-  let t;
-  const timeout = new Promise((_, reject) => {
-    t = setTimeout(() => reject(new Error(`TIMEOUT (${label}) após ${ms}ms`)), ms);
-  });
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    clearTimeout(t);
+let ctx = {
+  user: null,
+  perfil: null,
+  roles: [],
+  isAdmin: false,
+  isDot: false,
+  isMonitor: false,
+  turmasPermitidas: [],
+  alunos: []
+};
+
+async function carregarPerfil(uid) {
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data() : null;
+}
+
+function preencherTurmas() {
+  selTurma.innerHTML = "";
+  const turmas = (ctx.turmasPermitidas || []).map(normalizaTurma).filter(Boolean);
+
+  if (!turmas.length) {
+    selTurma.innerHTML = `<option value="">(sem turmasPermitidas)</option>`;
+    return;
+  }
+  for (const t of turmas) {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    selTurma.appendChild(opt);
   }
 }
 
-let currentUser = null;
-let roles = [];
-let turmasPermitidas = [];
+function renderLista() {
+  const termo = (inpBusca.value || "").trim().toLowerCase();
 
-function isAdminOrDot() {
-  return roles.includes("admin") || roles.includes("dot");
-}
-function isMonitorOnly() {
-  return roles.includes("monitor") && !isAdminOrDot();
-}
-
-async function waitForUser() {
-  return new Promise((resolve, reject) => {
-    const unsub = onAuthStateChanged(
-      auth,
-      (u) => {
-        unsub();
-        if (!u) return reject(new Error("Você não está logado. Volte e faça login."));
-        resolve(u);
-      },
-      (e) => {
-        unsub();
-        reject(e);
-      }
-    );
+  const alunos = ctx.alunos.filter(a => {
+    const nome = String(a.nomeLower || a.nome || "").toLowerCase();
+    if (termo && !nome.includes(termo)) return false;
+    return true;
   });
-}
 
-async function loadUserProfile(uid) {
-  // ⚠️ se sua rules bloquear users, isso vai dar erro (e vamos ver na tela)
-  const ref = doc(db, "users", uid);
-  const snap = await withTimeout(getDoc(ref), 8000, "getDoc users");
-  if (!snap.exists()) return {};
-  return snap.data();
-}
-
-async function fillTurmasSelect() {
-  if (Array.isArray(turmasPermitidas) && turmasPermitidas.length > 0) {
-    turmaSelect.innerHTML = turmasPermitidas
-      .map((t) => {
-        const up = turmaToUpper(t);
-        return `<option value="${up}">${up}</option>`;
-      })
-      .join("");
+  if (!alunos.length) {
+    lista.innerHTML = `<p class="muted">Nenhum aluno encontrado.</p>`;
     return;
   }
 
-  // fallback simples
-  turmaSelect.innerHTML = `<option value="2A">2A</option>`;
+  const podeJustificar = ctx.isAdmin || ctx.isDot;
+  const dataISO = inpData.value;
+
+  lista.innerHTML = alunos.map(a => `
+    <div class="item" data-alunoid="${a.id}">
+      <h4>${a.nome || "(sem nome)"} <span class="badge">${a.turmaUpper || "—"}</span></h4>
+      <div class="row">
+        <div class="badge">Matrícula: ${a.matricula || "-"}</div>
+        <div class="badge">Situação: ${a.situacao || (a.ativo ? "ativo" : "inativo")}</div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <label style="margin:0">
+          <input type="checkbox" class="chkPresente" checked />
+          Presente
+        </label>
+
+        <div style="min-width:180px">
+          <label>Faltas no dia (0–10)</label>
+          <input class="inpFaltas" type="number" min="0" max="10" value="0" />
+        </div>
+
+        <div style="flex:1;min-width:260px">
+          <label class="${podeJustificar ? "" : "muted"}">Justificativa (DOT/Admin)</label>
+          <input class="inpJust" type="text" ${podeJustificar ? "" : "disabled"} placeholder="Ex.: atestado / documento legal" />
+          <label style="margin-top:6px">
+            <input type="checkbox" class="chkJustificada" ${podeJustificar ? "" : "disabled"} />
+            Falta justificada
+          </label>
+        </div>
+      </div>
+
+      <div class="muted" style="margin-top:8px">
+        Registro para a data: <b>${dataISO}</b>
+      </div>
+    </div>
+  `).join("");
 }
 
-function renderTabela(alunos) {
-  tbody.innerHTML = "";
-  contador.textContent = `Total: ${alunos.length}`;
+async function carregarAlunos() {
+  const turmaUpper = normalizaTurma(selTurma.value);
+  const somenteAtivos = !!chkSomenteAtivos.checked;
 
-  const termo = (buscaInput.value || "").trim().toLowerCase();
+  if (!turmaUpper) return setStatus("Selecione uma turma.", true);
 
-  alunos
-    .filter((a) => !termo || (a.nome || "").toLowerCase().includes(termo))
-    .forEach((a) => {
-      const tr = document.createElement("tr");
-      tr.dataset.alunoId = a.id;
+  setStatus("Carregando alunos...");
+  lista.innerHTML = "";
 
-      tr.innerHTML = `
-        <td>${escapeHtml(a.nome)}</td>
-        <td>${escapeHtml(a.turmaUpper)}</td>
-        <td>${escapeHtml(a.matricula)}</td>
-        <td>
-          <select class="situacao small">
-            <option value="ativo" ${a.situacao === "ativo" ? "selected" : ""}>ativo</option>
-            <option value="desistente" ${a.situacao === "desistente" ? "selected" : ""}>desistente</option>
-            <option value="evadido" ${a.situacao === "evadido" ? "selected" : ""}>evadido</option>
-          </select>
-        </td>
-        <td><input class="presente" type="checkbox" checked /></td>
-        <td><input class="faltas small" type="number" min="0" max="10" value="0" /></td>
-        <td><input class="justificada" type="checkbox" ${isAdminOrDot() ? "" : "disabled"} /></td>
-        <td><input class="justificativa" type="text" placeholder="(somente DOT/Admin)" ${isAdminOrDot() ? "" : "disabled"} style="width:240px" /></td>
-      `;
+  try {
+    // ✅ CONSULTA CORRETA (isso remove o erro rosa)
+    const ref = collection(db, "alunos");
+    const filtros = [where("turmaUpper", "==", turmaUpper)];
+    if (somenteAtivos) filtros.push(where("ativo", "==", true));
 
-      tbody.appendChild(tr);
-    });
+    const q = query(ref, ...filtros);
+    const snap = await getDocs(q);
+
+    ctx.alunos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a,b) => (a.nomeLower || a.nome || "").toString().localeCompare((b.nomeLower || b.nome || "").toString()));
+
+    setStatus(ctx.alunos.length ? `Alunos carregados: ${ctx.alunos.length}` : "Nenhum aluno encontrado.");
+    renderLista();
+  } catch (e) {
+    console.error(e);
+    setStatus("Erro ao carregar alunos: " + (e?.message || e), true);
+  }
 }
 
-async function loadAlunos() {
-  showStatus("Carregando alunos...", "ok");
-
-  const turma = turmaToUpper(turmaSelect.value);
-  const ativosOnly = !!somenteAtivos.checked;
-
-  // monitor só hoje
-  const data = dataInput.value || todayISO();
-  if (isMonitorOnly() && data !== todayISO()) {
-    throw new Error("Monitor só pode lançar frequência de HOJE.");
+function validarPermissaoData(dataISO) {
+  const hoje = hojeISO();
+  if (ctx.isMonitor && !(ctx.isAdmin || ctx.isDot) && dataISO !== hoje) {
+    return { ok:false, msg:"Monitor só pode lançar frequência do dia (hoje)." };
   }
-
-  // ⚠️ OBRIGATÓRIO: seus alunos precisam ter turmaUpper = "2A"
-  let qAlunos;
-  if (ativosOnly) {
-    qAlunos = query(
-      collection(db, "alunos"),
-      where("turmaUpper", "==", turma),
-      where("ativo", "==", true),
-      limit(500)
-    );
-  } else {
-    qAlunos = query(
-      collection(db, "alunos"),
-      where("turmaUpper", "==", turma),
-      limit(500)
-    );
-  }
-
-  // ✅ se travar, vai dar timeout e mostrar o motivo
-  const snap = await withTimeout(getDocs(qAlunos), 8000, "getDocs alunos");
-
-  const alunos = [];
-  snap.forEach((d) => {
-    const a = d.data();
-    alunos.push({
-      id: d.id,
-      nome: a.nome || "",
-      turmaUpper: a.turmaUpper || turma,
-      matricula: a.matricula || "",
-      situacao: a.situacao || "ativo",
-    });
-  });
-
-  alunos.sort((x, y) => (x.nome || "").localeCompare((y.nome || ""), "pt-BR"));
-
-  renderTabela(alunos);
-  showStatus(`Alunos carregados: ${alunos.length}`, "ok");
+  return { ok:true };
 }
 
 async function salvarTudo() {
-  showStatus("Salvando frequência...", "ok");
+  const turmaUpper = normalizaTurma(selTurma.value);
+  const dataISO = inpData.value;
 
-  const turma = turmaToUpper(turmaSelect.value);
-  const data = dataInput.value || todayISO();
+  if (!turmaUpper) return setStatus("Selecione a turma.", true);
+  if (!dataISO) return setStatus("Selecione a data.", true);
 
-  if (isMonitorOnly() && data !== todayISO()) {
-    throw new Error("Monitor só pode lançar frequência de HOJE.");
+  const perm = validarPermissaoData(dataISO);
+  if (!perm.ok) return setStatus(perm.msg, true);
+
+  const itens = Array.from(document.querySelectorAll(".item"));
+  if (!itens.length) return setStatus("Carregue os alunos primeiro.", true);
+
+  setStatus("Salvando frequência...");
+
+  try {
+    const batch = writeBatch(db);
+    const refFreq = collection(db, "frequencias");
+
+    for (const el of itens) {
+      const alunoId = el.getAttribute("data-alunoid"); // ✅ ID REAL do aluno
+      const aluno = ctx.alunos.find(a => a.id === alunoId);
+      if (!aluno) continue;
+
+      const presente = !!el.querySelector(".chkPresente")?.checked;
+      const faltasNoDia = Number(el.querySelector(".inpFaltas")?.value || 0);
+
+      let justificada = false;
+      let justificativa = "";
+      if (ctx.isAdmin || ctx.isDot) {
+        justificada = !!el.querySelector(".chkJustificada")?.checked;
+        justificativa = (el.querySelector(".inpJust")?.value || "").trim();
+      }
+
+      const docId = buildFreqDocId(turmaUpper, alunoId, dataISO);
+      const docRef = doc(refFreq, docId);
+
+      batch.set(docRef, {
+        alunoId,
+        nome: aluno.nome || "",
+        nomeLower: aluno.nomeLower || (aluno.nome || "").toLowerCase(),
+        matricula: aluno.matricula || "",
+        turma: turmaUpper,
+        turmaUpper,
+        data: dataISO,
+
+        presente,                 // boolean
+        faltasNoDia,              // number
+        justificada,              // boolean
+        justificativa,            // string
+
+        editadoPor: ctx.user.uid,
+        editadoEm: serverTimestamp(),
+        criadoPor: ctx.user.uid,
+        criadoEm: serverTimestamp()
+      }, { merge: true });
+    }
+
+    await batch.commit();
+    setStatus("Frequência salva com sucesso ✅");
+  } catch (e) {
+    console.error(e);
+    setStatus("Erro ao salvar: " + (e?.message || e), true);
   }
-
-  const rows = [...tbody.querySelectorAll("tr")];
-  if (rows.length === 0) throw new Error("Nenhum aluno carregado. Clique em 'Carregar alunos'.");
-
-  for (const tr of rows) {
-    const alunoId = tr.dataset.alunoId;
-
-    const nome = tr.children[0].textContent || "";
-    const turmaUpper = tr.children[1].textContent || turma;
-    const matricula = tr.children[2].textContent || "";
-
-    const situacao = tr.querySelector(".situacao")?.value || "ativo";
-    const presente = !!tr.querySelector(".presente")?.checked;
-
-    const faltasNoDiaRaw = tr.querySelector(".faltas")?.value;
-    const faltasNoDia = Math.max(0, Math.min(10, Number(faltasNoDiaRaw || 0)));
-
-    const justificada = isAdminOrDot() ? !!tr.querySelector(".justificada")?.checked : false;
-    const justificativa = isAdminOrDot() ? (tr.querySelector(".justificativa")?.value || "") : "";
-
-    const docId = `${turmaUpper}_${data}_${alunoId}`;
-
-    await withTimeout(
-      setDoc(
-        doc(db, "frequencias", docId),
-        {
-          alunoId,
-          nome,
-          turma: turmaUpper,
-          turmaUpper,
-          matricula,
-
-          data,
-          presente,
-          faltasNoDia,
-
-          justificada,
-          justificativa,
-
-          situacao,
-
-          criadoPor: currentUser.uid,
-          criadoEm: serverTimestamp(),
-          editadoPor: currentUser.uid,
-          editadoEm: serverTimestamp(),
-        },
-        { merge: true }
-      ),
-      8000,
-      "setDoc frequencias"
-    );
-  }
-
-  showStatus(`Frequência salva com sucesso para ${turma} em ${data}.`, "ok");
 }
 
-async function boot() {
-  dataInput.value = todayISO();
+btnCarregar?.addEventListener("click", carregarAlunos);
+btnSalvarTudo?.addEventListener("click", salvarTudo);
+inpBusca?.addEventListener("input", renderLista);
 
-  showStatus("Iniciando…", "ok");
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return window.location.href = "./index.html";
+  ctx.user = user;
 
-  currentUser = await waitForUser();
-  showStatus("Logado. Carregando perfil…", "ok");
+  // data padrão = hoje
+  inpData.value = hojeISO();
 
-  const profile = await loadUserProfile(currentUser.uid);
+  setStatus("Carregando perfil...");
+  const perfil = await carregarPerfil(user.uid);
 
-  if (Array.isArray(profile.roles)) roles = profile.roles.map(String);
-  else if (typeof profile.roles === "string") roles = profile.roles.split(",").map(s => s.trim()).filter(Boolean);
-  else if (typeof profile.role === "string") roles = profile.role.split(",").map(s => s.trim()).filter(Boolean);
-  else roles = [];
+  if (!perfil) {
+    return setStatus(`Não existe users/${user.uid}. Crie esse doc na coleção users.`, true);
+  }
 
-  turmasPermitidas = Array.isArray(profile.turmasPermitidas) ? profile.turmasPermitidas.map(turmaToUpper) : [];
+  ctx.perfil = perfil;
+  const roles = Array.isArray(perfil.roles) ? perfil.roles : (perfil.role ? [perfil.role] : []);
+  ctx.roles = roles.map(r => String(r).toLowerCase());
 
-  await fillTurmasSelect();
+  ctx.isAdmin = ctx.roles.includes("admin");
+  ctx.isDot = ctx.roles.includes("dot");
+  ctx.isMonitor = ctx.roles.includes("monitor");
 
-  btnCarregar.addEventListener("click", async () => {
-    try {
-      await loadAlunos();
-    } catch (e) {
-      console.error(e);
-      showStatus(`ERRO ao carregar alunos:\n${e.message || e}`, "err");
-    }
-  });
+  ctx.turmasPermitidas = Array.isArray(perfil.turmasPermitidas) ? perfil.turmasPermitidas : [];
+  preencherTurmas();
 
-  btnSalvar.addEventListener("click", async () => {
-    try {
-      await salvarTudo();
-    } catch (e) {
-      console.error(e);
-      showStatus(`ERRO ao salvar:\n${e.message || e}`, "err");
-    }
-  });
-
-  showStatus("Pronto. Clique em 'Carregar alunos'.", "ok");
-}
-
-boot().catch((e) => {
-  console.error(e);
-  showStatus(`ERRO ao iniciar:\n${e.message || e}`, "err");
+  setStatus("Selecione a turma e clique em “Carregar alunos”.");
 });
