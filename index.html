@@ -1,51 +1,24 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sistema DOT Moreira - Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f2f2f2;
-      font-family: Arial, sans-serif;
-    }
-    .card {
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      width: 320px;
-      text-align: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-    }
-    button {
-      background: #db4437;
-      color: white;
-      border: none;
-      padding: 12px;
-      width: 100%;
-      font-size: 16px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    p { margin-top: 15px; font-size: 14px; }
-  </style>
+  <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
-
+<body class="page-center">
   <div class="card">
-    <h2>Sistema DOT Moreira</h2>
+    <h1>Sistema DOT Moreira</h1>
 
-    <button id="btnLogin">Entrar com Google</button>
-    <p id="status">Aguardando login</p>
+    <button id="btnLogin" class="btn primary">Entrar com Google</button>
+    <p id="status" class="msg info">Aguardando login...</p>
+
+    <p class="hint">
+      Se travar no tablet/celular: use Chrome e permita pop-ups.
+      (O sistema tenta popup e, se falhar, usa redirect.)
+    </p>
   </div>
 
-  <!-- 🔥 UM ÚNICO SCRIPT -->
-  <script type="module" src="login.js"></script>
-
+  <script type="module" src="./auth.js"></script>
 </body>
 </html>
