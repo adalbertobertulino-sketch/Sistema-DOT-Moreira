@@ -11,7 +11,7 @@
     .card{background:#fff;border-radius:10px;padding:14px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
     #menu a{margin-right:12px;text-decoration:none;color:#0b1f3a;font-weight:700}
     label{display:block;margin-top:10px;font-weight:700}
-    input,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+    select,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
     button{background:#1a3d7c;color:#fff;border:none;font-weight:700;cursor:pointer}
     button:hover{opacity:.95}
     .danger{background:#b00020}
@@ -37,20 +37,17 @@
 
     <div id="content" style="display:none;">
       <div class="card">
-        <h3>Acesso do Responsável</h3>
-        <div class="muted">Informe o <b>Código do Aluno</b> (studentId). O responsável verá notas e PDFs.</div>
-
-        <label>Código do Aluno</label>
-        <input id="studentId" placeholder="Ex.: xYz123Abc..." />
-        <button id="btnBuscar">Buscar</button>
+        <h3>Meus filhos (alunos vinculados)</h3>
+        <div class="muted">Selecione um aluno para ver notas e PDFs.</div>
+        <label>Aluno</label>
+        <select id="studentSelect"></select>
+        <button id="btnCarregar">Carregar dados</button>
       </div>
 
       <div class="card">
         <h3>Notas</h3>
         <table>
-          <thead>
-            <tr><th>Avaliação</th><th>Nota</th><th>Data</th></tr>
-          </thead>
+          <thead><tr><th>Avaliação</th><th>Nota</th><th>Data</th></tr></thead>
           <tbody id="grades"></tbody>
         </table>
       </div>
@@ -58,9 +55,7 @@
       <div class="card">
         <h3>PDFs</h3>
         <table>
-          <thead>
-            <tr><th>Arquivo</th><th>Link</th><th>Data</th></tr>
-          </thead>
+          <thead><tr><th>Arquivo</th><th>Link</th><th>Data</th></tr></thead>
           <tbody id="pdfs"></tbody>
         </table>
       </div>
@@ -69,10 +64,10 @@
 
   <script type="module">
     import { protectPage, wireLogoutButton, renderMenu, setStatus } from "./app.js";
-    import { db } from "./firebase.js";
+    import { auth, db } from "./firebase.js";
     import { collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    // ✅ Qualquer usuário logado pode acessar (se quiser: allowedRoles:["parent"] eu ajusto)
+    // ✅ qualquer logado pode entrar, mas só verá alunos vinculados ao email
     protectPage({ allowedRoles: [] });
     wireLogoutButton();
     renderMenu();
@@ -83,6 +78,44 @@
       try { return ts?.toDate?.().toLocaleString() || "-"; } catch { return "-"; }
     }
 
+    async function carregarFilhosDoEmail() {
+      const userEmail = (auth.currentUser?.email || "").toLowerCase();
+      if (!userEmail) {
+        alert("Não foi possível ler o e-mail do usuário.");
+        return;
+      }
+
+      const sel = $("studentSelect");
+      sel.innerHTML = "";
+
+      const snap = await getDocs(query(collection(db,"students"), orderBy("createdAt","desc")));
+      const filhos = [];
+
+      snap.forEach((d)=>{
+        const s = d.data();
+        const parentEmails = Array.isArray(s.parentEmails) ? s.parentEmails.map(x=>String(x).toLowerCase()) : [];
+        if (parentEmails.includes(userEmail)) {
+          filhos.push({ id: d.id, ...s });
+        }
+      });
+
+      if (filhos.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "Nenhum aluno vinculado a este e-mail";
+        sel.appendChild(opt);
+        return;
+      }
+
+      filhos.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+      for (const f of filhos) {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.textContent = f.name || "(sem nome)";
+        sel.appendChild(opt);
+      }
+    }
+
     async function carregarNotas(studentId){
       const tbody = $("grades");
       tbody.innerHTML = "";
@@ -90,7 +123,7 @@
       const snap = await getDocs(query(collection(db,"grades"), orderBy("createdAt","desc")));
       snap.forEach((d)=>{
         const g = d.data();
-        if(g.studentId === studentId){
+        if (g.studentId === studentId) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${g.avaliacao||""}</td><td>${g.nota ?? ""}</td><td>${fmt(g.createdAt)}</td>`;
           tbody.appendChild(tr);
@@ -105,7 +138,7 @@
       const snap = await getDocs(query(collection(db,"pdfs"), orderBy("createdAt","desc")));
       snap.forEach((d)=>{
         const p = d.data();
-        if(p.studentId === studentId){
+        if (p.studentId === studentId) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${p.fileName||""}</td><td><a href="${p.url}" target="_blank">abrir</a></td><td>${fmt(p.createdAt)}</td>`;
           tbody.appendChild(tr);
@@ -113,15 +146,17 @@
       });
     }
 
-    $("btnBuscar").addEventListener("click", async ()=>{
-      const studentId = $("studentId").value.trim();
-      if(!studentId) return alert("Digite o Código do Aluno.");
-
-      setStatus("Buscando...");
+    $("btnCarregar").addEventListener("click", async ()=>{
+      const studentId = $("studentSelect").value;
+      if (!studentId) return alert("Selecione um aluno válido.");
+      setStatus("Carregando dados...");
       await carregarNotas(studentId);
       await carregarPdfs(studentId);
       setStatus("OK.");
     });
+
+    await carregarFilhosDoEmail();
+    setStatus("OK.");
   </script>
 </body>
 </html>
