@@ -2,32 +2,33 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dashboard - Sistema DOT</title>
-  <link rel="stylesheet" href="./styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — Sistema DOT</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">Sistema DOT Moreira</div>
-    <nav class="nav">
-      <a href="./dashboard.html" class="active">Painel</a>
+    <strong>Sistema DOT Moreira</strong>
+    <nav class="menu">
+      <a href="./dashboard.html">Painel</a>
       <a href="./alunos.html">Alunos</a>
       <a href="./frequencia.html">Frequência</a>
-      <button id="btnSair" class="btn">Sair</button>
+      <button id="btnSair" class="btn small">Sair</button>
     </nav>
   </header>
 
   <main class="container">
-    <div class="card">
+    <section class="card wide">
       <h2>Bem-vindo(a)</h2>
       <div class="grid">
-        <div><strong>Nome:</strong> <span id="nome">Carregando...</span></div>
-        <div><strong>Email:</strong> <span id="email">Carregando...</span></div>
-        <div><strong>UID:</strong> <span id="uid">Carregando...</span></div>
-        <div><strong>Perfis:</strong> <span id="roles">Carregando...</span></div>
+        <div><b>Nome:</b> <span id="nome">Carregando…</span></div>
+        <div><b>Email:</b> <span id="email">Carregando…</span></div>
+        <div><b>UID:</b> <span id="uid">Carregando…</span></div>
+        <div><b>Perfis:</b> <span id="roles">Carregando…</span></div>
+        <div><b>Turmas permitidas:</b> <span id="turmas">Carregando…</span></div>
       </div>
-      <p id="status" class="msg info">Carregando perfil...</p>
-    </div>
+      <p id="status" class="status info">Carregando perfil…</p>
+    </section>
   </main>
 
   <script type="module" src="./dashboard.js"></script>
