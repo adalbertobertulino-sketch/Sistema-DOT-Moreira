@@ -1,58 +1,52 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Sistema DOT Moreira</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f5f5f5;
+      background: #f2f2f2;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      margin: 0;
     }
     .card {
       background: white;
       padding: 30px;
       border-radius: 10px;
+      width: 320px;
       text-align: center;
-      width: 90%;
-      max-width: 420px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 0 10px rgba(0,0,0,.1);
     }
     button {
+      width: 100%;
+      padding: 15px;
       background: #db4437;
       color: white;
       border: none;
-      padding: 15px;
-      width: 100%;
-      font-size: 16px;
       border-radius: 6px;
+      font-size: 16px;
       cursor: pointer;
     }
-    button:hover { opacity: 0.9; }
-    .info {
+    .msg {
       margin-top: 15px;
       font-size: 13px;
-      color: #666;
-      line-height: 1.4;
+      color: #555;
     }
   </style>
 </head>
 <body>
+
   <div class="card">
     <h2>Sistema DOT Moreira</h2>
-    <button id="btnLogin">Entrar com Google</button>
-    <div class="info">
-      Login por REDIRECT (funciona no tablet/celular).<br>
-      Se ficar travado: limpe cookies do site ou teste aba anônima.
-    </div>
+    <button onclick="loginGoogle()">Entrar com Google</button>
+    <div class="msg" id="status">Aguardando login…</div>
   </div>
 
-  <!-- Importa o firebase.js como módulo -->
+  <!-- IMPORTANTE -->
   <script type="module" src="firebase.js"></script>
 </body>
 </html>
