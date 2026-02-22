@@ -6,51 +6,62 @@ import {
   getDocs,
   doc,
   setDoc,
+  getDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-const statusEl = document.getElementById("status");
-const listaEl = document.getElementById("listaAlunos");
-const turmaSelect = document.getElementById("turma");
-const dataInput = document.getElementById("data");
+/* ELEMENTOS */
+const turmaEl = document.getElementById("turma");
+const dataEl = document.getElementById("data");
 const btnCarregar = document.getElementById("btnCarregar");
+const lista = document.getElementById("listaAlunos");
+const statusEl = document.getElementById("status");
 
 let usuarioAtual = null;
+let roles = [];
 
+/* STATUS */
 function setStatus(msg, tipo = "info") {
-  statusEl.innerText = msg;
   statusEl.className = tipo;
+  statusEl.innerText = msg;
 }
 
-onAuthStateChanged(auth, user => {
+/* LOGIN + PERFIL */
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = "index.html";
+    window.location.href = "./index.html";
     return;
   }
+
   usuarioAtual = user;
+
+  const snap = await getDoc(doc(db, "users", user.uid));
+  roles = snap.exists() ? snap.data().roles || [] : [];
+
+  // data padrão = hoje
+  if (!dataEl.value) {
+    const hoje = new Date().toISOString().split("T")[0];
+    dataEl.value = hoje;
+  }
+
+  setStatus("Selecione a turma e a data.", "info");
 });
 
+/* CARREGAR ALUNOS */
 btnCarregar.addEventListener("click", carregarAlunos);
 
 async function carregarAlunos() {
-  listaEl.innerHTML = "";
-  setStatus("Carregando alunos...", "info");
+  const turma = turmaEl.value;
+  const data = dataEl.value;
 
-  const turmaRaw = turmaSelect.value;
-  const data = dataInput.value;
-
-  if (!turmaRaw || !data) {
-    setStatus("Selecione turma e data.", "erro");
+  if (!turma || !data) {
+    setStatus("Selecione turma e data.", "alerta");
     return;
   }
 
-  // 🔥 NORMALIZAÇÃO DEFINITIVA
-  const turma = turmaRaw
-    .toUpperCase()
-    .replace("°", "")
-    .replace("º", "")
-    .trim();
+  lista.innerHTML = "";
+  setStatus("Carregando alunos…", "info");
 
   try {
     const q = query(
@@ -62,48 +73,111 @@ async function carregarAlunos() {
     const snap = await getDocs(q);
 
     if (snap.empty) {
-      setStatus("Nenhum aluno encontrado para essa turma.", "alerta");
+      setStatus("Nenhum aluno encontrado para a turma " + turma, "alerta");
       return;
     }
 
-    setStatus(`Alunos carregados: ${snap.size}`, "ok");
+    for (const alunoDoc of snap.docs) {
+      const aluno = alunoDoc.data();
+      const alunoId = alunoDoc.id;
 
-    snap.forEach(docSnap => {
-      const aluno = docSnap.data();
+      const freqId = `${alunoId}_${data}`;
+      const freqRef = doc(db, "frequencias", freqId);
+      const freqSnap = await getDoc(freqRef);
+
+      const freq = freqSnap.exists()
+        ? freqSnap.data()
+        : {
+            presente: true,
+            faltas: 0,
+            justificativa: ""
+          };
 
       const li = document.createElement("li");
+
       li.innerHTML = `
-        <strong>${aluno.nome}</strong> — ${aluno.turma}
-        <button data-id="${docSnap.id}">Presente</button>
+        <div>
+          <b>${aluno.nome}</b><br/>
+          <small>Turma: ${aluno.turmaUpper}</small>
+        </div>
+
+        <div>
+          <label>
+            <input type="checkbox" class="chkPresente" ${
+              freq.presente ? "checked" : ""
+            }>
+            Presente
+          </label>
+          <br/>
+          <input 
+            type="number" 
+            min="0" 
+            max="10" 
+            value="${freq.faltas || 0}" 
+            class="faltas"
+            ${freq.presente ? "disabled" : ""}
+          >
+        </div>
+
+        <div>
+          ${
+            roles.includes("admin") || roles.includes("dot")
+              ? `<input 
+                   type="text" 
+                   placeholder="Justificativa"
+                   value="${freq.justificativa || ""}"
+                   class="justificativa"
+                 >`
+              : `<small>Justificativa: somente DOT/Admin</small>`
+          }
+        </div>
+
+        <div>
+          <button class="btnSalvar">Salvar</button>
+        </div>
       `;
 
-      li.querySelector("button").addEventListener("click", () => {
-        salvarFrequencia(docSnap.id, aluno);
+      /* CONTROLES */
+      const chk = li.querySelector(".chkPresente");
+      const faltasEl = li.querySelector(".faltas");
+      const justEl = li.querySelector(".justificativa");
+      const btnSalvar = li.querySelector(".btnSalvar");
+
+      chk.addEventListener("change", () => {
+        faltasEl.disabled = chk.checked;
+        if (chk.checked) faltasEl.value = 0;
       });
 
-      listaEl.appendChild(li);
-    });
+      btnSalvar.addEventListener("click", async () => {
+        const presente = chk.checked;
+        const faltas = Number(faltasEl.value) || 0;
 
+        let justificativa = "";
+        if (justEl && (roles.includes("admin") || roles.includes("dot"))) {
+          justificativa = justEl.value.trim();
+        }
+
+        await setDoc(freqRef, {
+          alunoId,
+          nome: aluno.nome,
+          turma: aluno.turmaUpper,
+          data,
+          presente,
+          faltas,
+          justificativa,
+          criadoOuEditadoPor: usuarioAtual.uid,
+          atualizadoEm: serverTimestamp()
+        });
+
+        setStatus("Frequência salva com sucesso.", "ok");
+      });
+
+      lista.appendChild(li);
+    }
+
+    setStatus("Alunos carregados.", "ok");
   } catch (e) {
     console.error(e);
     setStatus("Erro ao carregar alunos.", "erro");
   }
-}
-
-async function salvarFrequencia(alunoId, aluno) {
-  const data = dataInput.value;
-
-  const ref = doc(db, "frequencias", `${alunoId}_${data}`);
-
-  await setDoc(ref, {
-    alunoId,
-    nome: aluno.nome,
-    turma: aluno.turma,
-    data,
-    presente: true,
-    criadoPor: usuarioAtual.uid,
-    criadoEm: serverTimestamp()
-  });
-
-  alert("Frequência salva!");
 }
