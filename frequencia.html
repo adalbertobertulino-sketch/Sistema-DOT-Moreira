@@ -1,63 +1,28 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sistema DOT Moreira • Frequência</title>
+  <meta charset="UTF-8" />
+  <title>Frequência - Sistema DOT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- CSS CORRETO -->
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">Sistema DOT Moreira</div>
-    <nav class="nav">
-      <a href="./dashboard.html">Painel</a>
-      <a href="./frequencia.html" class="active">Frequência</a>
-      <button id="btnLogout" class="btn btn-ghost">Sair</button>
-    </nav>
-  </header>
 
-  <main class="container">
-    <section class="card">
-      <h2>Frequência</h2>
-      <p class="muted">
-        Monitor lança só o dia de hoje. DOT/Admin podem lançar dia anterior, editar e justificar.
-      </p>
+  <h2>Lançamento de Frequência</h2>
 
-      <div class="grid2">
-        <div>
-          <div class="label">Turma</div>
-          <select id="selTurma"></select>
-        </div>
+  <label>Turma:</label>
+  <select id="turmaSelect"></select>
 
-        <div>
-          <div class="label">Data</div>
-          <input id="inpData" type="date" />
-        </div>
-      </div>
+  <label>Data:</label>
+  <input type="date" id="dataSelect" />
 
-      <div class="grid2">
-        <label class="row">
-          <input type="checkbox" id="chkSomenteAtivos" checked />
-          <span>Somente ativos</span>
-        </label>
+  <button id="btnCarregar">Carregar alunos</button>
 
-        <div>
-          <div class="label">Busca por nome</div>
-          <input id="inpBusca" type="text" placeholder="Digite parte do nome…" />
-        </div>
-      </div>
+  <div id="listaAlunos"></div>
 
-      <div class="actions">
-        <button id="btnCarregar" class="btn btn-primary">Carregar alunos</button>
-        <button id="btnSalvarTudo" class="btn">Salvar tudo</button>
-      </div>
+  <script type="module" src="./frequencia.js"></script>
 
-      <p id="status" class="alert">Aguardando…</p>
-      <div id="lista"></div>
-    </section>
-  </main>
-
-  <script type="module" src="./js/firebase.js"></script>
-  <script type="module" src="./js/frequencia.js"></script>
 </body>
 </html>
