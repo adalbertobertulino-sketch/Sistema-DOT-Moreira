@@ -6,7 +6,6 @@ import {
 
 import {
   collection,
-  addDoc,
   query,
   where,
   orderBy,
@@ -14,6 +13,7 @@ import {
   serverTimestamp,
   doc,
   getDoc,
+  setDoc,
   deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -34,6 +34,40 @@ function esc(s) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+// remove acentos, deixa minúsculo, tira espaços duplicados
+function normalizeText(s) {
+  return (s ?? "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // acentos
+    .replace(/\s+/g, " "); // espaços
+}
+
+function normalizeTurma(s) {
+  return (s ?? "").toString().trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function onlyDigits(s) {
+  return (s ?? "").toString().replace(/\D+/g, "");
+}
+
+/**
+ * Gera um ID único (chave) SEMPRE igual para o mesmo aluno.
+ * - Com matrícula:  TURMA__M__MATRICULA
+ * - Sem matrícula:  TURMA__N__NOME_NORMALIZADO
+ */
+function buildAlunoId({ turma, matricula, nome }) {
+  const t = normalizeTurma(turma);
+  const m = onlyDigits(matricula);
+
+  if (m) return `${t}__M__${m}`;
+
+  const n = normalizeText(nome).replace(/\s+/g, "_");
+  return `${t}__N__${n}`;
 }
 
 function renderRows(docs, canWrite) {
@@ -81,8 +115,9 @@ function startList(turmaFiltro = "") {
   if (unsub) unsub();
 
   const base = collection(db, "alunos");
-  const turma = turmaFiltro.trim();
+  const turma = normalizeTurma(turmaFiltro);
 
+  // OBS: orderBy("nome") funciona se todos tiverem o campo "nome"
   const q = turma
     ? query(base, where("turma", "==", turma), orderBy("nome"))
     : query(base, orderBy("nome"));
@@ -118,6 +153,52 @@ async function excluirAluno(id) {
   }
 }
 
+async function salvarOuAtualizarAluno({ nome, turma, matricula }) {
+  const turmaNorm = normalizeTurma(turma);
+  const nomeNorm = normalizeText(nome);
+  const matriculaDigits = onlyDigits(matricula);
+
+  const alunoId = buildAlunoId({ turma: turmaNorm, matricula: matriculaDigits, nome: nomeNorm });
+  const ref = doc(db, "alunos", alunoId);
+
+  // Se já existir, pergunta se quer atualizar (evita duplicado)
+  const existente = await getDoc(ref);
+  if (existente.exists()) {
+    const dataOld = existente.data() || {};
+    const msg = [
+      "Este aluno já existe para essa Turma (e Matrícula/Nome).",
+      "",
+      "Deseja ATUALIZAR os dados?",
+      "",
+      `Atual: ${dataOld.nome} | ${dataOld.turma} | ${dataOld.matricula || ""}`,
+      `Novo:  ${nome} | ${turmaNorm} | ${matriculaDigits || ""}`,
+    ].join("\n");
+    const ok = confirm(msg);
+    if (!ok) {
+      setStatus("Cadastro cancelado (evitou duplicado).", "info");
+      return;
+    }
+  }
+
+  // salva SEMPRE no mesmo ID => nunca duplica
+  await setDoc(ref, {
+    nome: nome.trim(),
+    turma: turmaNorm,
+    matricula: matriculaDigits || "",
+    ativo: true,
+
+    // campos auxiliares (para buscas futuras e padronização)
+    nomeLower: nomeNorm,
+    turmaUpper: turmaNorm,
+
+    criadoPor: currentUser.uid,
+    criadoEm: existente.exists() ? (existente.data()?.criadoEm || serverTimestamp()) : serverTimestamp(),
+    atualizadoEm: serverTimestamp(),
+  }, { merge: true });
+
+  setStatus(existente.exists() ? "Aluno atualizado ✅ (sem duplicar)" : "Aluno salvo ✅", "ok");
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   $("btnSair")?.addEventListener("click", async () => {
     await signOut(auth);
@@ -130,7 +211,7 @@ window.addEventListener("DOMContentLoaded", () => {
     setStatus("Recarregando...", "info");
   });
 
-  // Delegação de eventos para botões "Excluir"
+  // Delegação de clique nos botões "Excluir"
   $("lista")?.addEventListener("click", async (ev) => {
     const btn = ev.target?.closest?.("button[data-action]");
     if (!btn) return;
@@ -168,21 +249,15 @@ window.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      setStatus("Salvando aluno...", "info");
+      setStatus("Salvando (anti-duplicado)...", "info");
       try {
-        await addDoc(collection(db, "alunos"), {
-          nome,
-          turma,
-          matricula: matricula || "",
-          ativo: true,
-          criadoPor: currentUser.uid,
-          criadoEm: serverTimestamp(),
-        });
+        await salvarOuAtualizarAluno({ nome, turma, matricula });
 
-        setStatus("Aluno salvo ✅", "ok");
+        // limpa
         $("nome").value = "";
         $("turma").value = "";
         $("matricula").value = "";
+
       } catch (e) {
         console.error(e);
         setStatus("Erro ao salvar: " + (e.code || e.message), "err");
