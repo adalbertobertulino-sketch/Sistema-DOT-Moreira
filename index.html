@@ -1,56 +1,58 @@
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-    authDomain: "sistema-dot.firebaseapp.com",
-    projectId: "sistema-dot",
-    storageBucket: "sistema-dot.appspot.com",
-    messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const provider = new GoogleAuthProvider();
-
-  async function criarUsuarioSeNaoExistir(user) {
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
-
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        uid: user.uid,
-        email: user.email,
-        name: user.displayName || "",
-        roles: ["dot"],
-        createdAt: new Date()
-      });
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema DOT Moreira</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
-  }
-
-  window.loginGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      await criarUsuarioSeNaoExistir(result.user);
-      window.location.href = "dashboard.html";
-    } catch (err) {
-      alert("Erro no login (popup): " + err.message);
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      width: 90%;
+      max-width: 420px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-  };
-
-  onAuthStateChanged(auth, async (user) => {
-    if (user && window.location.pathname.includes("index")) {
-      await criarUsuarioSeNaoExistir(user);
-      window.location.href = "dashboard.html";
+    button {
+      background: #db4437;
+      color: white;
+      border: none;
+      padding: 15px;
+      width: 100%;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
     }
-  });
-</script>
+    button:hover { opacity: 0.9; }
+    .info {
+      margin-top: 15px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Sistema DOT Moreira</h2>
+    <button id="btnLogin">Entrar com Google</button>
+    <div class="info">
+      Login por REDIRECT (funciona no tablet/celular).<br>
+      Se ficar travado: limpe cookies do site ou teste aba anônima.
+    </div>
+  </div>
+
+  <!-- Importa o firebase.js como módulo -->
+  <script type="module" src="firebase.js"></script>
+</body>
+</html>
