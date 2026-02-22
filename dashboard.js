@@ -1,74 +1,92 @@
-// dashboard.js — PERFIL + ROLES (VERSÃO SEGURA)
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard – Sistema DOT</title>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getAuth,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-// 🔐 Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-  authDomain: "sistema-dot.firebaseapp.com",
-  projectId: "sistema-dot",
-  storageBucket: "sistema-dot.appspot.com",
-  messagingSenderId: "1003611331429",
-  appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
-};
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f6fa;
+      margin: 0;
+      padding: 0;
+    }
 
-// Init
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+    header {
+      background: #2f3640;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 20px;
+    }
 
-// Elementos da tela
-const elNome = document.getElementById("nome");
-const elEmail = document.getElementById("email");
-const elUid = document.getElementById("uid");
-const elRoles = document.getElementById("roles");
-const btnSair = document.getElementById("btnSair");
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
 
-// Segurança
-console.log("dashboard.js carregado");
+    h2 {
+      margin-top: 0;
+    }
 
-// Controle de sessão
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "index.html";
-    return;
-  }
+    p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
 
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
+    strong {
+      color: #333;
+    }
 
-  // 🔹 Se NÃO existir, cria usuário automaticamente
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      nome: user.displayName || "",
-      email: user.email,
-      roles: ["dot"], // padrão
-      criadoEm: new Date().toISOString()
-    });
-  }
+    .btn {
+      margin-top: 20px;
+      padding: 10px 16px;
+      background: #c0392b;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
 
-  const dados = (await getDoc(ref)).data();
+    .btn:hover {
+      background: #e74c3c;
+    }
 
-  // Preenche tela
-  elNome.innerText = dados.nome;
-  elEmail.innerText = dados.email;
-  elUid.innerText = user.uid;
-  elRoles.innerText = dados.roles.join(", ");
-});
+    .status {
+      margin-top: 10px;
+      color: #555;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
 
-// Logout
-btnSair.addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "index.html";
-});
+<header>
+  Sistema DOT Moreira – Dashboard
+</header>
+
+<div class="container">
+  <h2>Bem-vindo(a)</h2>
+
+  <p><strong>Nome:</strong> <span id="nome">Carregando...</span></p>
+  <p><strong>Email:</strong> <span id="email">Carregando...</span></p>
+  <p><strong>UID:</strong> <span id="uid">Carregando...</span></p>
+  <p><strong>Perfis:</strong> <span id="roles">Carregando...</span></p>
+
+  <button id="btnSair" class="btn">Sair</button>
+
+  <div class="status" id="status"></div>
+</div>
+
+<!-- JS -->
+<script type="module" src="./dashboard.js"></script>
+
+</body>
+</html>
