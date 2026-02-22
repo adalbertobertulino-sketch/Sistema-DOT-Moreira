@@ -1,115 +1,111 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Admin - Sistema DOT Moreira</title>
-  <style>
-    body{font-family:Arial;margin:0;background:#f4f6f9}
-    header{background:#0f172a;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
-    main{padding:18px}
-    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
-    .card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
-    button{background:#1e3a8a;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
-    table{width:100%;border-collapse:collapse;margin-top:14px}
-    th,td{border:1px solid #ddd;padding:8px;text-align:left}
-    a{color:#fff;text-decoration:none;margin-right:10px}
-    .warn{color:#b91c1c;font-weight:bold}
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema DOT Moreira - Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
 </head>
 <body>
+  <div id="topbar"></div>
+  <div class="container">
 
-<header>
-  <div><strong>Sistema DOT Moreira</strong> — Painel Administrativo</div>
-  <div>
-    <a href="dashboard.html">Voltar</a>
-    <button id="btnSair">Sair</button>
+    <div class="card">
+      <h2>Administração</h2>
+      <p class="small" id="who">Carregando…</p>
+      <p class="small">
+        ⚠️ Para este modo funcionar com segurança, você define o primeiro admin manualmente em
+        <b>Firestore → users → SEU_UID → roles: ["admin","dot"]</b>.
+      </p>
+    </div>
+
+    <div class="grid" style="margin-top:14px;">
+      <div class="card">
+        <h2>Convidar por email (vira role ao logar)</h2>
+        <div class="field">
+          <label>Email</label>
+          <input id="email" placeholder="ex: professor@escola.com" />
+        </div>
+        <div class="field">
+          <label>Role para aplicar</label>
+          <select id="role">
+            <option value="admin">admin</option>
+            <option value="dot">dot</option>
+            <option value="monitor">monitor</option>
+            <option value="parent">parent</option>
+          </select>
+        </div>
+        <button class="btn primary" onclick="invite()">Criar convite</button>
+        <p class="small" id="msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Alterar roles por UID (usuário já logou)</h2>
+        <div class="field">
+          <label>UID</label>
+          <input id="uid" placeholder="Cole o UID do usuário" />
+        </div>
+        <div class="field">
+          <label>Roles (separadas por vírgula)</label>
+          <input id="roles" placeholder="admin,dot" />
+        </div>
+        <button class="btn primary" onclick="setRoles()">Salvar roles</button>
+        <p class="small" id="msg2"></p>
+      </div>
+    </div>
+
   </div>
-</header>
 
-<main>
-  <h2 id="infoUser">Carregando…</h2>
-  <p id="infoRole" class="warn"></p>
+  <script>
+    let state={me:null,user:null};
 
-  <div class="cards">
-    <div class="card"><h3>Turmas</h3><div id="qtdTurmas">0</div></div>
-    <div class="card"><h3>Alunos</h3><div id="qtdAlunos">0</div></div>
-    <div class="card"><h3>Usuários</h3><div id="qtdUsers">0</div></div>
-  </div>
-
-  <div class="card" style="margin-top:14px">
-    <h3>Usuários</h3>
-    <table>
-      <thead><tr><th>Nome</th><th>Email</th><th>Role</th><th>UID</th></tr></thead>
-      <tbody id="tUsers"></tbody>
-    </table>
-  </div>
-</main>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import {
-    getFirestore,
-    doc,
-    getDoc,
-    collection,
-    onSnapshot
-  } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-    authDomain: "sistema-dot.firebaseapp.com",
-    projectId: "sistema-dot",
-    storageBucket: "sistema-dot.firebasestorage.app",
-    messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
-    measurementId: "G-FS1CBVNFEG"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  document.getElementById("btnSair").addEventListener("click", async () => {
-    await signOut(auth);
-    window.location.href = "index.html";
-  });
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) { window.location.href = "index.html"; return; }
-
-    document.getElementById("infoUser").textContent =
-      `Logado: ${user.displayName || "Usuário"} (${user.email})`;
-
-    const snap = await getDoc(doc(db, "users", user.uid));
-    const role = snap.exists() ? (snap.data().role || "dot") : "dot";
-
-    if (role !== "admin") {
-      document.getElementById("infoRole").textContent =
-        "Acesso negado: você não é admin. Voltando…";
-      setTimeout(() => window.location.href = "dashboard.html", 1200);
-      return;
+    async function invite(){
+      try{
+        $("#msg").innerText="Salvando…";
+        await createAdminInvite($("#email").value, $("#role").value, state.me);
+        $("#msg").innerText="✅ Convite criado. Quando a pessoa logar, a role será aplicada.";
+      }catch(e){
+        $("#msg").innerText="❌ "+e.message;
+      }
     }
 
-    document.getElementById("infoRole").textContent = "";
+    async function setRoles(){
+      try{
+        $("#msg2").innerText="Salvando…";
+        const roles = ($("#roles").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+        await setUserRoles($("#uid").value.trim(), roles, state.me);
+        $("#msg2").innerText="✅ Roles atualizadas!";
+      }catch(e){
+        $("#msg2").innerText="❌ "+e.message;
+      }
+    }
 
-    // Contadores
-    onSnapshot(collection(db, "turmas"), (s) => document.getElementById("qtdTurmas").textContent = s.size);
-    onSnapshot(collection(db, "alunos"), (s) => document.getElementById("qtdAlunos").textContent = s.size);
-    onSnapshot(collection(db, "users"), (s) => {
-      document.getElementById("qtdUsers").textContent = s.size;
-      const tb = document.getElementById("tUsers");
-      tb.innerHTML = "";
-      s.forEach((d) => {
-        const u = d.data();
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${u.nome||""}</td><td>${u.email||""}</td><td>${u.role||""}</td><td>${u.uid||d.id}</td>`;
-        tb.appendChild(tr);
-      });
-    });
-  });
-</script>
+    (async function(){
+      renderTopbar("admin");
+      const {user,me}=await requireAuth();
+      state.user=user; state.me=me;
 
+      if(!hasRole(me.roles,"admin")){
+        $("#who").innerHTML = `<span class="badge red">Acesso negado</span> Você não é admin.`;
+        return;
+      }
+
+      $("#who").innerHTML = `
+        <span class="badge green">ADMIN</span><br/>
+        <b>${me.name || "-"}</b><br/>
+        ${me.email}<br/>
+        UID: ${me.uid}<br/>
+        Roles: ${(me.roles||[]).join(", ")}
+      `;
+    })();
+  </script>
 </body>
 </html>
