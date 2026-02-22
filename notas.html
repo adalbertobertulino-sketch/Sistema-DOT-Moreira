@@ -11,7 +11,7 @@
     .card{background:#fff;border-radius:10px;padding:14px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
     #menu a{margin-right:12px;text-decoration:none;color:#0b1f3a;font-weight:700}
     label{display:block;margin-top:10px;font-weight:700}
-    input,select,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+    input,select,button,textarea{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
     button{background:#1a3d7c;color:#fff;border:none;font-weight:700;cursor:pointer}
     button:hover{opacity:.95}
     .danger{background:#b00020}
@@ -21,7 +21,6 @@
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{border-bottom:1px solid #eee;padding:10px;text-align:left}
-    .btnSmall{width:auto;padding:8px 10px;border-radius:8px}
     .muted{color:#666;font-size:13px}
     a{color:#1a3d7c}
   </style>
@@ -32,21 +31,17 @@
   <div class="wrap">
     <div class="card topline">
       <div id="menu"></div>
-      <div>
-        <button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button>
-      </div>
+      <div><button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button></div>
     </div>
 
-    <div class="card" id="loading">
-      <div id="status">Carregando...</div>
-    </div>
+    <div class="card" id="loading"><div id="status">Carregando...</div></div>
 
     <div id="content" style="display:none;">
       <div class="card">
         <h3>Seu perfil</h3>
         <div><b>Nome:</b> <span id="nome">-</span></div>
         <div><b>Email:</b> <span id="email">-</span></div>
-        <div><b>Role:</b> <span id="role">-</span></div>
+        <div><b>Role(s):</b> <span id="role">-</span></div>
         <div><b>UID:</b> <span id="uid">-</span></div>
       </div>
 
@@ -62,6 +57,13 @@
             <select id="alunoSelect"></select>
           </div>
         </div>
+      </div>
+
+      <div class="card">
+        <h3>Responsáveis (e-mails)</h3>
+        <p class="muted">Um e-mail por linha. Ex.: pai@gmail.com</p>
+        <textarea id="parentsBox" placeholder="pai@gmail.com&#10;mae@gmail.com"></textarea>
+        <button id="btnSalvarPais">Salvar responsáveis do aluno</button>
       </div>
 
       <div class="card">
@@ -85,8 +87,7 @@
       </div>
 
       <div class="card">
-        <h3>Enviar PDF de notas/boletim (para pais)</h3>
-        <p class="muted">Aqui você só faz upload do PDF e o sistema guarda o link pro responsável acessar em outra tela.</p>
+        <h3>Enviar PDF (boletim/notas) para pais</h3>
         <input id="pdf" type="file" accept="application/pdf" />
         <button id="btnEnviarPdf">Enviar PDF</button>
         <div id="linkPdf" class="muted" style="margin-top:10px;"></div>
@@ -96,11 +97,7 @@
         <h3>Histórico (notas + PDFs)</h3>
         <table>
           <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Detalhe</th>
-              <th>Data</th>
-            </tr>
+            <tr><th>Tipo</th><th>Detalhe</th><th>Data</th></tr>
           </thead>
           <tbody id="historico"></tbody>
         </table>
@@ -116,11 +113,9 @@
       doc, getDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    import {
-      ref, uploadBytes, getDownloadURL
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
+    import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
-    protectPage({ requireAdmin: true }); // ✅ Notas só admin
+    protectPage({ allowedRoles: ["admin"] }); // notas e vínculos: admin
     wireLogoutButton();
     renderMenu();
 
@@ -133,7 +128,7 @@
     async function carregarTurmas() {
       const sel = $("turmaSelect");
       sel.innerHTML = "";
-      const snap = await getDocs(query(collection(db, "turmas"), orderBy("createdAt", "desc")));
+      const snap = await getDocs(query(collection(db, "turmas"), orderBy("createdAt","desc")));
       snap.forEach((d) => {
         const t = d.data();
         const opt = document.createElement("option");
@@ -148,7 +143,7 @@
       const sel = $("alunoSelect");
       sel.innerHTML = "";
 
-      const all = await getDocs(query(collection(db, "students"), orderBy("createdAt", "desc")));
+      const all = await getDocs(query(collection(db, "students"), orderBy("createdAt","desc")));
       const alunos = [];
       all.forEach((d) => {
         const s = d.data();
@@ -163,23 +158,55 @@
         opt.textContent = a.name || "(sem nome)";
         sel.appendChild(opt);
       }
+
+      await carregarParentsDoAluno();
+    }
+
+    async function carregarParentsDoAluno() {
+      const studentId = $("alunoSelect").value;
+      if (!studentId) { $("parentsBox").value = ""; return; }
+
+      const sref = doc(db, "students", studentId);
+      const snap = await getDoc(sref);
+      if (!snap.exists()) { $("parentsBox").value = ""; return; }
+
+      const s = snap.data();
+      const emails = Array.isArray(s.parentEmails) ? s.parentEmails : [];
+      $("parentsBox").value = emails.join("\n");
+    }
+
+    async function salvarParentsDoAluno() {
+      const studentId = $("alunoSelect").value;
+      if (!studentId) return alert("Selecione um aluno.");
+
+      const raw = $("parentsBox").value.trim();
+      const emails = raw
+        ? raw.split("\n").map(x => x.trim().toLowerCase()).filter(Boolean)
+        : [];
+
+      await setDoc(doc(db, "students", studentId), {
+        parentEmails: emails,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      setStatus("Responsáveis salvos.");
     }
 
     async function salvarNota() {
       const turmaId = $("turmaSelect").value;
-      const alunoId = $("alunoSelect").value;
+      const studentId = $("alunoSelect").value;
       const avaliacao = $("avaliacao").value;
       const nota = Number($("nota").value);
 
       if (!turmaId) return alert("Selecione uma turma.");
-      if (!alunoId) return alert("Selecione um aluno.");
+      if (!studentId) return alert("Selecione um aluno.");
       if (Number.isNaN(nota)) return alert("Digite uma nota válida.");
 
       setStatus("Salvando nota...");
 
       await addDoc(collection(db, "grades"), {
         turmaId,
-        studentId: alunoId,
+        studentId,
         avaliacao,
         nota,
         createdAt: serverTimestamp()
@@ -192,16 +219,16 @@
 
     async function enviarPdf() {
       const turmaId = $("turmaSelect").value;
-      const alunoId = $("alunoSelect").value;
+      const studentId = $("alunoSelect").value;
       const file = $("pdf").files[0];
 
       if (!turmaId) return alert("Selecione uma turma.");
-      if (!alunoId) return alert("Selecione um aluno.");
+      if (!studentId) return alert("Selecione um aluno.");
       if (!file) return alert("Selecione um PDF.");
 
       setStatus("Enviando PDF...");
 
-      const path = `pdfs/${turmaId}/${alunoId}/${Date.now()}_${file.name}`;
+      const path = `pdfs/${turmaId}/${studentId}/${Date.now()}_${file.name}`;
       const storageRef = ref(storage, path);
 
       await uploadBytes(storageRef, file);
@@ -209,7 +236,7 @@
 
       await addDoc(collection(db, "pdfs"), {
         turmaId,
-        studentId: alunoId,
+        studentId,
         fileName: file.name,
         url,
         storagePath: path,
@@ -222,60 +249,40 @@
       await carregarHistorico();
     }
 
+    function fmt(ts){
+      try { return ts?.toDate?.().toLocaleString() || "-"; } catch { return "-"; }
+    }
+
     async function carregarHistorico() {
       const turmaId = $("turmaSelect").value;
-      const alunoId = $("alunoSelect").value;
+      const studentId = $("alunoSelect").value;
       const tbody = $("historico");
       tbody.innerHTML = "";
 
-      if (!turmaId || !alunoId) return;
+      if (!turmaId || !studentId) return;
 
-      // Grades
-      const gSnap = await getDocs(query(collection(db, "grades"), orderBy("createdAt", "desc")));
-      const grades = [];
+      const gSnap = await getDocs(query(collection(db, "grades"), orderBy("createdAt","desc")));
       gSnap.forEach((d) => {
         const g = d.data();
-        if (g.turmaId === turmaId && g.studentId === alunoId) grades.push(g);
+        if (g.turmaId === turmaId && g.studentId === studentId) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>Nota</td><td>${g.avaliacao}: ${g.nota}</td><td>${fmt(g.createdAt)}</td>`;
+          tbody.appendChild(tr);
+        }
       });
 
-      // PDFs
-      const pSnap = await getDocs(query(collection(db, "pdfs"), orderBy("createdAt", "desc")));
-      const pdfs = [];
+      const pSnap = await getDocs(query(collection(db, "pdfs"), orderBy("createdAt","desc")));
       pSnap.forEach((d) => {
         const p = d.data();
-        if (p.turmaId === turmaId && p.studentId === alunoId) pdfs.push(p);
+        if (p.turmaId === turmaId && p.studentId === studentId) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>PDF</td><td><a href="${p.url}" target="_blank">${p.fileName || "Abrir PDF"}</a></td><td>${fmt(p.createdAt)}</td>`;
+          tbody.appendChild(tr);
+        }
       });
-
-      const itens = [];
-
-      for (const g of grades) {
-        itens.push({
-          tipo: "Nota",
-          detalhe: `${g.avaliacao}: ${g.nota}`,
-          data: g.createdAt?.toDate?.() ? g.createdAt.toDate().toLocaleString() : "-"
-        });
-      }
-      for (const p of pdfs) {
-        itens.push({
-          tipo: "PDF",
-          detalhe: `<a href="${p.url}" target="_blank">${p.fileName || "Abrir PDF"}</a>`,
-          data: p.createdAt?.toDate?.() ? p.createdAt.toDate().toLocaleString() : "-"
-        });
-      }
-
-      // ordena por texto de data (não perfeito), mas serve
-      // (se quiser perfeito, a gente guarda timestamp numérico)
-      for (const it of itens) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${it.tipo}</td>
-          <td>${it.detalhe}</td>
-          <td>${it.data}</td>
-        `;
-        tbody.appendChild(tr);
-      }
     }
 
+    $("btnSalvarPais").addEventListener("click", salvarParentsDoAluno);
     $("btnSalvarNota").addEventListener("click", salvarNota);
     $("btnEnviarPdf").addEventListener("click", enviarPdf);
 
@@ -284,7 +291,10 @@
       await carregarHistorico();
     });
 
-    $("alunoSelect").addEventListener("change", carregarHistorico);
+    $("alunoSelect").addEventListener("change", async () => {
+      await carregarParentsDoAluno();
+      await carregarHistorico();
+    });
 
     await carregarTurmas();
     await carregarAlunos();
