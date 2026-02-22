@@ -3,124 +3,97 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Frequência — Sistema DOT</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f6f7fb;color:#111}
-    header{background:#222;color:#fff;padding:14px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between}
-    header .left{display:flex;gap:10px;align-items:center}
-    header a{color:#fff;text-decoration:none;opacity:.9;margin-right:10px}
-    header a:hover{opacity:1}
-    .wrap{max-width:1050px;margin:18px auto;padding:0 14px}
-    .card{background:#fff;border:1px solid #e6e8ef;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.04);margin-bottom:14px}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
-    label{font-size:12px;color:#555;display:block;margin-bottom:6px}
-    input,select{padding:10px 12px;border:1px solid #dfe3ee;border-radius:10px;min-width:180px}
-    button{cursor:pointer;border:none;border-radius:10px;padding:10px 12px;background:#2c3e50;color:#fff}
-    button.danger{background:#e74c3c}
-    button.good{background:#1f8b4c}
-    .muted{color:#666;font-size:13px}
-    .msg{margin-top:10px;padding:10px;border-radius:10px;display:none}
-    .ok{background:#e8fff0;border:1px solid #bfe9cf;color:#0b6b2f}
-    .err{background:#ffecec;border:1px solid #f1b6b6;color:#8a1111}
-
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{border-bottom:1px solid #edf0f6;padding:10px;text-align:left;font-size:14px}
-    th{color:#333;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-    .badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;background:#eef0f6}
-    .small{font-size:12px;color:#555}
-    .actions{display:flex;gap:8px;flex-wrap:wrap}
-    .toggle{display:flex;gap:8px;align-items:center}
-    .toggle input[type="checkbox"]{transform:scale(1.2)}
-    .qtd{width:90px;min-width:90px}
-  </style>
+  <title>Frequência - Sistema DOT</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
 
-<header>
-  <div class="left">
-    <strong>Sistema DOT Moreira</strong>
-    <span class="badge" id="perfilPill">Carregando perfil...</span>
-  </div>
+  <header class="topbar">
+    <div class="brand">Sistema DOT Moreira</div>
+    <nav class="menu">
+      <a href="./dashboard.html">Painel</a>
+      <a href="./alunos.html">Alunos</a>
+      <a class="active" href="./frequencia.html">Frequência</a>
+      <a href="./avisos.html">Avisos</a>
+      <a href="./pais.html">Pais</a>
+      <a href="./admin.html">Admin</a>
+    </nav>
+    <button id="btnSair" class="btn">Sair</button>
+  </header>
 
-  <div class="right">
-    <a href="./dashboard.html">Painel</a>
-    <a href="./alunos.html">Alunos</a>
-    <a href="./frequencia.html">Frequência</a>
-    <a href="./avisos.html">Avisos</a>
-    <a href="./admin.html">Admin</a>
-    <button id="btnSair" class="danger" type="button">Sair</button>
-  </div>
-</header>
+  <main class="container">
 
-<div class="wrap">
+    <section class="card">
+      <h1>Lançamento de Frequência</h1>
+      <p class="muted">Selecione a turma e a data. Carregue os alunos e salve.</p>
 
-  <div class="card">
-    <h2 style="margin:0 0 8px 0;">Lançar frequência</h2>
-    <div class="muted">Selecione a turma e a data. Depois marque presença/faltas e salve.</div>
+      <div id="status" class="msg info">Carregando...</div>
 
-    <div class="row" style="margin-top:12px;">
-      <div>
-        <label>Turma</label>
-        <select id="turmaSelect">
-          <option value="">Carregando...</option>
-        </select>
-      </div>
+      <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div>
+          <label>Turma</label>
+          <select id="turmaSelect">
+            <option value="">Carregando...</option>
+          </select>
+        </div>
 
-      <div>
-        <label>Data</label>
-        <input id="dataInput" type="date" />
+        <div>
+          <label>Data</label>
+          <input id="dataInput" type="date" />
+        </div>
+
+        <div>
+          <label>Mostrar alunos</label>
+          <select id="filtroSituacao">
+            <option value="ativo" selected>Somente Ativos</option>
+            <option value="">Todos</option>
+            <option value="desistente">Somente Desistentes</option>
+            <option value="evadido">Somente Evadidos</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Buscar (nome)</label>
+          <input id="buscaInput" type="text" placeholder="Digite parte do nome..." />
+        </div>
       </div>
 
       <div class="actions">
-        <button id="btnCarregar" type="button">Carregar alunos</button>
-        <button id="btnSalvarTudo" class="good" type="button">Salvar tudo</button>
+        <button id="btnCarregar" class="btn">Carregar alunos</button>
+        <button id="btnSalvarTudo" class="btn primary">Salvar tudo</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Lista</h2>
+      <p class="muted" id="subtitulo">—</p>
+
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Aluno</th>
+              <th>Turma</th>
+              <th>Matrícula</th>
+              <th>Situação</th>
+              <th>Presente</th>
+              <th>Faltas no dia (0-10)</th>
+            </tr>
+          </thead>
+          <tbody id="lista">
+            <tr><td colspan="6" class="muted">Selecione a turma e clique em “Carregar alunos”.</td></tr>
+          </tbody>
+        </table>
       </div>
 
-      <div style="flex:1;min-width:260px;">
-        <div class="small"><b>Status:</b> <span id="status">—</span></div>
-        <div id="msg" class="msg"></div>
-      </div>
-    </div>
-  </div>
+      <p class="muted" style="margin-top:10px;">
+        Regras: se “Presente” estiver marcado, faltas ficam 0 automaticamente.  
+        Se desmarcar, você pode informar quantas aulas faltou no dia.
+      </p>
+    </section>
 
-  <div class="card">
-    <div class="row" style="align-items:center;justify-content:space-between;">
-      <div>
-        <h3 style="margin:0;">Alunos da turma</h3>
-        <div class="muted" id="subtitulo">—</div>
-      </div>
+  </main>
 
-      <div>
-        <label>Buscar aluno</label>
-        <input id="buscaInput" placeholder="Digite parte do nome..." />
-      </div>
-    </div>
-
-    <div style="overflow:auto;">
-      <table id="tabela">
-        <thead>
-          <tr>
-            <th>Aluno</th>
-            <th>Matrícula</th>
-            <th>Presente</th>
-            <th>Faltas no dia</th>
-            <th>Ação</th>
-          </tr>
-        </thead>
-        <tbody id="tbody">
-          <tr><td colspan="5" class="muted">Carregue uma turma para começar.</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="muted" style="margin-top:10px;">
-      Dica: “Presente” marcado = faltas no dia vira 0 automaticamente.  
-      Se “Presente” desmarcado, você pode colocar quantas aulas faltou (ex.: 1, 2, 3...).
-    </div>
-  </div>
-
-</div>
-
-<script type="module" src="./frequencia.js"></script>
+  <script type="module" src="./frequencia.js"></script>
 </body>
 </html>
