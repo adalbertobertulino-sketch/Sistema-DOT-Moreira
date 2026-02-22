@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema DOT Moreira - Vínculos Pais</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f3f5f7;}
+    header{background:#0b1f3a;color:#fff;padding:14px 18px;font-weight:700}
+    .wrap{max-width:980px;margin:18px auto;padding:0 14px}
+    .card{background:#fff;border-radius:10px;padding:14px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    #menu a{margin-right:12px;text-decoration:none;color:#0b1f3a;font-weight:700}
+    label{display:block;margin-top:10px;font-weight:700}
+    input,select,button,textarea{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+    button{background:#1a3d7c;color:#fff;border:none;font-weight:700;cursor:pointer}
+    button:hover{opacity:.95}
+    .danger{background:#b00020}
+    .topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    #status{color:#0b6b2b;font-weight:700}
+    #loading{padding:14px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .muted{color:#666;font-size:13px}
+  </style>
+</head>
+<body>
+  <header>Sistema DOT Moreira — Vínculos Pais</header>
+
+  <div class="wrap">
+    <div class="card topline">
+      <div id="menu"></div>
+      <div><button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button></div>
+    </div>
+
+    <div class="card" id="loading"><div id="status">Carregando...</div></div>
+
+    <div id="content" style="display:none;">
+      <div class="card">
+        <h3>Vincular responsáveis a um aluno</h3>
+
+        <div class="row">
+          <div>
+            <label>Turma</label>
+            <select id="turmaSelect"></select>
+          </div>
+          <div>
+            <label>Aluno</label>
+            <select id="alunoSelect"></select>
+          </div>
+        </div>
+
+        <label>Emails dos responsáveis (1 por linha)</label>
+        <textarea id="parentsBox" placeholder="pai@gmail.com&#10;mae@gmail.com"></textarea>
+
+        <button id="btnSalvar">Salvar Vínculos</button>
+        <div class="muted" style="margin-top:10px;">
+          Dica: o pai entra na Área dos Pais com Google e verá apenas alunos cujo email esteja vinculado.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { protectPage, wireLogoutButton, renderMenu, setStatus } from "./app.js";
+    import { db } from "./firebase.js";
+    import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+    protectPage({ allowedRoles: ["admin"] });
+    wireLogoutButton();
+    renderMenu();
+
+    const $ = (id) => document.getElementById(id);
+
+    function turmaLabel(t){ return `${t.turma} / ${t.ano} / ${t.turno} / ${t.disciplina}`; }
+
+    async function carregarTurmas(){
+      const sel = $("turmaSelect");
+      sel.innerHTML = "";
+      const snap = await getDocs(query(collection(db,"turmas"), orderBy("createdAt","desc")));
+      snap.forEach((d)=>{
+        const t=d.data();
+        const opt=document.createElement("option");
+        opt.value=d.id;
+        opt.textContent=turmaLabel(t);
+        sel.appendChild(opt);
+      });
+    }
+
+    async function carregarAlunos(){
+      const turmaId = $("turmaSelect").value;
+      const sel = $("alunoSelect");
+      sel.innerHTML = "";
+
+      const all = await getDocs(query(collection(db,"students"), orderBy("createdAt","desc")));
+      const alunos=[];
+      all.forEach((d)=>{
+        const s=d.data();
+        if(s.turmaId===turmaId) alunos.push({id:d.id, ...s});
+      });
+
+      alunos.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+      for(const a of alunos){
+        const opt=document.createElement("option");
+        opt.value=a.id;
+        opt.textContent=a.name || "(sem nome)";
+        sel.appendChild(opt);
+      }
+
+      await carregarParents();
+    }
+
+    async function carregarParents(){
+      const studentId = $("alunoSelect").value;
+      if(!studentId){ $("parentsBox").value=""; return; }
+
+      const sref = doc(db,"students", studentId);
+      const snap = await getDoc(sref);
+      if(!snap.exists()){ $("parentsBox").value=""; return; }
+
+      const s = snap.data();
+      const emails = Array.isArray(s.parentEmails) ? s.parentEmails : [];
+      $("parentsBox").value = emails.join("\n");
+    }
+
+    async function salvar(){
+      const studentId = $("alunoSelect").value;
+      if(!studentId) return alert("Selecione um aluno.");
+
+      const raw = $("parentsBox").value.trim();
+      const emails = raw ? raw.split("\n").map(x=>x.trim().toLowerCase()).filter(Boolean) : [];
+
+      await setDoc(doc(db,"students", studentId), {
+        parentEmails: emails,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      setStatus("Vínculos salvos.");
+      alert("Vínculos salvos com sucesso.");
+    }
+
+    $("turmaSelect").addEventListener("change", carregarAlunos);
+    $("alunoSelect").addEventListener("change", carregarParents);
+    $("btnSalvar").addEventListener("click", salvar);
+
+    await carregarTurmas();
+    await carregarAlunos();
+    setStatus("OK.");
+  </script>
+</body>
+</html>
