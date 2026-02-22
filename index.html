@@ -1,128 +1,56 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sistema DOT Moreira</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;background:#f2f4f7;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
-    .card{background:#fff;width:min(520px,92vw);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:26px}
-    h1{margin:0 0 14px 0;text-align:center}
-    .btn{width:100%;padding:14px 16px;border:0;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
-    .btn-google{background:#d9534f;color:#fff}
-    .hint{margin-top:14px;color:#666;font-size:13px;line-height:1.4}
-    .status{margin-top:12px;font-size:14px;min-height:18px}
-    .ok{color:#0b6}
-    .err{color:#c00}
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema DOT Moreira - Login</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase compat (funciona no GitHub Pages) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
 </head>
 <body>
-  <div class="card">
-    <h1>Sistema DOT Moreira</h1>
+  <div class="center">
+    <div class="card loginCard">
+      <div class="h1">Sistema DOT Moreira</div>
 
-    <!-- IMPORTANTÍSSIMO: onclick direto (pra não depender de addEventListener) -->
-    <button id="btnGoogle" class="btn btn-google" onclick="loginGoogle()">
-      Entrar com Google
-    </button>
+      <button class="btn primary" onclick="doLogin()">Entrar com Google</button>
 
-    <div id="status" class="status"></div>
-
-    <div class="hint">
-      Se no tablet não acontecer nada, é porque o navegador bloqueou scripts/redirect.
-      A correção está no final: Brave Shields e permissões.
+      <p class="small" id="status">Carregando…</p>
+      <p class="small">
+        Se travar no tablet, desligue o “Shields” do Brave para este site e permita pop-ups/cookies.
+        (Este login usa popup + redirect automaticamente.)
+      </p>
     </div>
   </div>
 
-  <!-- Firebase (compat) - mais compatível com tablet -->
-  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
-
   <script>
-    // ===== SUA CONFIG =====
-    const firebaseConfig = {
-      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-      authDomain: "sistema-dot.firebaseapp.com",
-      projectId: "sistema-dot",
-      storageBucket: "sistema-dot.firebasestorage.app",
-      messagingSenderId: "1003611331429",
-      appId: "1:1003611331429:web:2b55b32379b447e3059f8c",
-      measurementId: "G-FS1CBVNFEG"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    function setStatus(msg, type){
-      const el = document.getElementById("status");
-      el.textContent = msg || "";
-      el.className = "status " + (type || "");
+    async function doLogin(){
+      document.getElementById("status").innerText = "Clique detectado. Tentando login…";
+      await loginGoogle();
     }
 
-    async function ensureUserDoc(user){
-      const ref = db.collection("users").doc(user.uid);
-      const snap = await ref.get();
+    (async function boot(){
+      document.getElementById("status").innerText = "Página carregada. Clique no botão para entrar.";
 
-      const base = {
-        uid: user.uid,
-        email: user.email || "",
-        name: user.displayName || "",
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
+      // Se veio de redirect
+      await handleRedirect();
 
-      if(!snap.exists){
-        await ref.set({
-          ...base,
-          role: "dot", // padrão
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-      } else {
-        await ref.set(base, { merge: true });
-      }
-    }
-
-    // LOGIN (redirect)
-    window.loginGoogle = function(){
-      try{
-        setStatus("Clique OK. Abrindo login do Google...", "ok");
-        const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithRedirect(provider);
-      }catch(e){
-        setStatus("Erro ao iniciar login: " + (e.code || e.message), "err");
-        alert("Erro: " + (e.code || e.message));
-      }
-    };
-
-    // Retorno do redirect
-    auth.getRedirectResult()
-      .then(async (result) => {
-        if(result && result.user){
-          setStatus("Login concluído. Preparando acesso...", "ok");
-          await ensureUserDoc(result.user);
-          window.location.href = "./dashboard.html?v=" + Date.now();
+      // Se já está logado, vai pro dashboard
+      auth.onAuthStateChanged(async (user)=>{
+        if(user){
+          let me = await ensureUserDoc(user);
+          await applyInviteIfExists(me);
+          window.location.href = "dashboard.html";
         }
-      })
-      .catch((e) => {
-        // Se deu erro no retorno, mostramos
-        setStatus("Erro no retorno do login: " + (e.code || e.message), "err");
       });
-
-    // Se já está logado, vai direto
-    auth.onAuthStateChanged(async (user) => {
-      if(user){
-        setStatus("Sessão encontrada. Indo para o painel...", "ok");
-        try{
-          await ensureUserDoc(user);
-          window.location.href = "./dashboard.html?v=" + Date.now();
-        }catch(e){
-          setStatus("Erro ao preparar usuário: " + (e.code || e.message), "err");
-        }
-      }
-    });
-
-    // Debug: se nem isso aparecer, JS não carregou
-    setStatus("Página carregada. Clique no botão para entrar.", "ok");
+    })();
   </script>
 </body>
 </html>
