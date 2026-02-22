@@ -3,8 +3,7 @@
   import {
     getAuth,
     GoogleAuthProvider,
-    signInWithRedirect,
-    getRedirectResult,
+    signInWithPopup,
     onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -23,10 +22,6 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  window.loginGoogle = () => {
-    signInWithRedirect(auth, provider);
-  };
-
   async function criarUsuarioSeNaoExistir(user) {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
@@ -42,17 +37,16 @@
     }
   }
 
-  // Volta do Google
-  getRedirectResult(auth).then(async (result) => {
-    if (result?.user) {
+  window.loginGoogle = async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
       await criarUsuarioSeNaoExistir(result.user);
       window.location.href = "dashboard.html";
+    } catch (err) {
+      alert("Erro no login (popup): " + err.message);
     }
-  }).catch(err => {
-    alert("Erro no login (redirect): " + err.message);
-  });
+  };
 
-  // Se já estiver logado
   onAuthStateChanged(auth, async (user) => {
     if (user && window.location.pathname.includes("index")) {
       await criarUsuarioSeNaoExistir(user);
