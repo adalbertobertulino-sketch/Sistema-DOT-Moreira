@@ -1,45 +1,53 @@
-// dashboard.js (COMPLETO)
-import { auth, watchAuth, getMyProfile, logout } from "./firebase.js";
+import { auth } from "./firebase.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { db } from "./firebase.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const elNome = document.getElementById("nome");
 const elEmail = document.getElementById("email");
 const elUid = document.getElementById("uid");
 const elRoles = document.getElementById("roles");
 const elTurmas = document.getElementById("turmas");
-const elStatus = document.getElementById("status");
 const btnSair = document.getElementById("btnSair");
 
-function setStatus(msg, kind="info") {
-  elStatus.textContent = msg;
-  elStatus.className = `status ${kind}`;
-}
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "index.html";
+    return;
+  }
 
-btnSair?.addEventListener("click", async () => {
-  await logout();
-  window.location.href = "./index.html";
+  try {
+    elEmail.textContent = user.email;
+    elUid.textContent = user.uid;
+
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      elNome.textContent = "Usuário sem perfil cadastrado";
+      elRoles.textContent = "-";
+      elTurmas.textContent = "-";
+      return;
+    }
+
+    const data = snap.data();
+
+    elNome.textContent = data.nome || "-";
+    elRoles.textContent = Array.isArray(data.roles)
+      ? data.roles.join(", ")
+      : data.role || "-";
+
+    elTurmas.textContent = Array.isArray(data.turmasPermitidas)
+      ? data.turmasPermitidas.join(", ")
+      : "-";
+
+  } catch (e) {
+    console.error("Erro ao carregar perfil:", e);
+    elNome.textContent = "Erro ao carregar perfil";
+  }
 });
 
-watchAuth(async (user) => {
-  if (!user) {
-    window.location.href = "./index.html";
-    return;
-  }
-
-  const profile = await getMyProfile();
-  if (!profile) {
-    setStatus("Perfil não encontrado. Tente sair e entrar novamente.", "err");
-    return;
-  }
-
-  elNome.textContent = profile.nome || user.displayName || "";
-  elEmail.textContent = profile.email || user.email || "";
-  elUid.textContent = user.uid;
-
-  const roles = Array.isArray(profile.roles) ? profile.roles : [];
-  elRoles.textContent = roles.length ? roles.join(", ") : "(sem perfil)";
-
-  const turmas = Array.isArray(profile.turmasPermitidas) ? profile.turmasPermitidas : [];
-  elTurmas.textContent = turmas.length ? turmas.join(", ") : "(nenhuma)";
-
-  setStatus("Perfil carregado com sucesso.", "ok");
+btnSair.addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "index.html";
 });
