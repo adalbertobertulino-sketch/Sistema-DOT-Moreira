@@ -25,7 +25,7 @@
 
     <section class="card">
       <h1>Lançamento de Frequência</h1>
-      <p class="muted">Selecione a turma e a data. Carregue os alunos e salve.</p>
+      <p class="muted">Escolha a turma e a data (pode ser dia anterior) e clique em “Carregar alunos”.</p>
 
       <div id="status" class="msg info">Carregando...</div>
 
@@ -38,8 +38,12 @@
         </div>
 
         <div>
-          <label>Data</label>
+          <label>Data (pode ser anterior)</label>
+          <!-- SEM min / max: libera dias anteriores -->
           <input id="dataInput" type="date" />
+          <div class="muted" style="margin-top:6px;">
+            Dica: você pode digitar a data no formato AAAA-MM-DD.
+          </div>
         </div>
 
         <div>
@@ -59,6 +63,8 @@
       </div>
 
       <div class="actions">
+        <button id="btnOntem" class="btn">Ontem</button>
+        <button id="btnHoje" class="btn">Hoje</button>
         <button id="btnCarregar" class="btn">Carregar alunos</button>
         <button id="btnSalvarTudo" class="btn primary">Salvar tudo</button>
       </div>
@@ -87,8 +93,7 @@
       </div>
 
       <p class="muted" style="margin-top:10px;">
-        Regras: se “Presente” estiver marcado, faltas ficam 0 automaticamente.  
-        Se desmarcar, você pode informar quantas aulas faltou no dia.
+        Se “Presente” estiver marcado, faltas ficam 0 automaticamente.
       </p>
     </section>
 
