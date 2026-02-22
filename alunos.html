@@ -1,95 +1,243 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Alunos - Sistema DOT Moreira</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema DOT Moreira - Alunos</title>
   <style>
-    body{font-family:Arial;margin:0;background:#f4f6f9}
-    header{background:#1e3a8a;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
-    main{padding:18px}
-    .box{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);max-width:720px}
-    input{padding:10px;border:1px solid #ddd;border-radius:8px;width:100%;margin:8px 0}
-    button{background:#0f172a;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
-    ul{padding-left:18px}
-    a{color:#fff}
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f3f5f7;}
+    header{background:#0b1f3a;color:#fff;padding:14px 18px;font-weight:700}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 14px}
+    .card{background:#fff;border-radius:10px;padding:14px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    #menu a{margin-right:12px;text-decoration:none;color:#0b1f3a;font-weight:700}
+    label{display:block;margin-top:10px;font-weight:700}
+    input,select,button,textarea{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+    button{background:#1a3d7c;color:#fff;border:none;font-weight:700;cursor:pointer}
+    button:hover{opacity:.95}
+    .danger{background:#b00020}
+    .topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    #status{color:#0b6b2b;font-weight:700}
+    #loading{padding:14px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border-bottom:1px solid #eee;padding:10px;text-align:left}
+    .muted{color:#666;font-size:13px}
+    .btnSmall{width:auto;padding:8px 10px;border-radius:8px}
   </style>
 </head>
 <body>
+  <header>Sistema DOT Moreira — Alunos</header>
 
-<header>
-  <div><strong>Sistema DOT Moreira</strong> — Alunos</div>
-  <div>
-    <a href="dashboard.html">Voltar</a>
-    <button id="btnSair" style="margin-left:10px">Sair</button>
+  <div class="wrap">
+    <div class="card topline">
+      <div id="menu"></div>
+      <div><button id="btnSair" class="danger" style="width:auto;padding:10px 14px;">Sair</button></div>
+    </div>
+
+    <div class="card" id="loading"><div id="status">Carregando...</div></div>
+
+    <div id="content" style="display:none;">
+      <div class="card">
+        <h3>Seu perfil</h3>
+        <div><b>Nome:</b> <span id="nome">-</span></div>
+        <div><b>Email:</b> <span id="email">-</span></div>
+        <div><b>Role(s):</b> <span id="role">-</span></div>
+        <div><b>UID:</b> <span id="uid">-</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Cadastrar aluno</h3>
+        <div class="row">
+          <div>
+            <label>Turma</label>
+            <select id="turmaSelect"></select>
+          </div>
+          <div>
+            <label>Nº chamada (opcional)</label>
+            <input id="numero" type="number" min="0" placeholder="Ex.: 12" />
+          </div>
+        </div>
+
+        <label>Nome do aluno</label>
+        <input id="nomeAluno" placeholder="Ex.: Maria da Silva" />
+
+        <button id="btnSalvar">Salvar aluno</button>
+
+        <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
+
+        <h4>Importar em massa (cola do Keep)</h4>
+        <div class="muted">Cole 1 aluno por linha. Se quiser nº chamada, use: <b>12 - Nome do Aluno</b></div>
+        <textarea id="massa" placeholder="1 - Ana Silva&#10;2 - Bruno Souza&#10;Carla Oliveira"></textarea>
+        <button id="btnImportar">Importar lista</button>
+      </div>
+
+      <div class="card">
+        <h3>Alunos da turma</h3>
+        <div class="muted">Você pode editar nome e nº chamada. Vínculo dos pais é no menu <b>Vínculos Pais</b>.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>Nome</th>
+              <th>ID</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="lista"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
-</header>
 
-<main>
-  <div class="box">
-    <h2>Cadastrar aluno</h2>
-    <input id="nome" placeholder="Nome do aluno" />
-    <button id="btnSalvar">Salvar</button>
+  <script type="module">
+    import { protectPage, wireLogoutButton, renderMenu, setStatus } from "./app.js";
+    import { db } from "./firebase.js";
+    import {
+      collection, query, orderBy, getDocs, addDoc,
+      doc, setDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    <h3 style="margin-top:18px">Lista</h3>
-    <ul id="lista"></ul>
-  </div>
-</main>
+    // ✅ DOT e ADMIN
+    protectPage({ allowedRoles: ["admin","dot"] });
+    wireLogoutButton();
+    renderMenu();
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    const $ = (id)=>document.getElementById(id);
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
-    authDomain: "sistema-dot.firebaseapp.com",
-    projectId: "sistema-dot",
-    storageBucket: "sistema-dot.firebasestorage.app",
-    messagingSenderId: "1003611331429",
-    appId: "1:1003611331429:web:bf8478cef6fecfa6059f8c"
-  };
+    function turmaLabel(t){
+      return `${t.turma} / ${t.ano} / ${t.turno} / ${t.disciplina}`;
+    }
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+    async function carregarTurmas(){
+      const sel = $("turmaSelect");
+      sel.innerHTML = "";
+      const snap = await getDocs(query(collection(db,"turmas"), orderBy("createdAt","desc")));
+      snap.forEach((d)=>{
+        const t=d.data();
+        const opt=document.createElement("option");
+        opt.value=d.id;
+        opt.textContent=turmaLabel(t);
+        sel.appendChild(opt);
+      });
+    }
 
-  // Protege página
-  onAuthStateChanged(auth, (user) => {
-    if (!user) window.location.href = "index.html";
-  });
+    async function listarAlunos(){
+      const turmaId = $("turmaSelect").value;
+      const tbody = $("lista");
+      tbody.innerHTML = "";
 
-  // Logout
-  document.getElementById("btnSair").addEventListener("click", async () => {
-    await signOut(auth);
-    window.location.href = "index.html";
-  });
+      if (!turmaId) return;
 
-  // Salvar aluno
-  document.getElementById("btnSalvar").addEventListener("click", async () => {
-    const nome = document.getElementById("nome").value.trim();
-    if (!nome) return alert("Digite o nome do aluno.");
+      const snap = await getDocs(query(collection(db,"students"), orderBy("createdAt","desc")));
+      const alunos = [];
+      snap.forEach((d)=>{
+        const s=d.data();
+        if (s.turmaId === turmaId) alunos.push({ id:d.id, ...s });
+      });
 
-    await addDoc(collection(db, "alunos"), {
-      nome,
-      criadoEm: serverTimestamp()
-    });
+      // ordena por numero e nome
+      alunos.sort((a,b)=>{
+        const na = Number(a.numero || 9999);
+        const nb = Number(b.numero || 9999);
+        if (na !== nb) return na - nb;
+        return (a.name||"").localeCompare(b.name||"");
+      });
 
-    document.getElementById("nome").value = "";
-  });
+      for (const a of alunos) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="width:90px">
+            <input id="num_${a.id}" type="number" min="0" value="${a.numero ?? ""}" />
+          </td>
+          <td>
+            <input id="name_${a.id}" value="${(a.name||"").replaceAll('"','&quot;')}" />
+          </td>
+          <td style="font-size:12px;color:#666">${a.id}</td>
+          <td style="width:120px">
+            <button class="btnSmall" id="save_${a.id}">Salvar</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
 
-  // Listar alunos em tempo real
-  const q = query(collection(db, "alunos"), orderBy("criadoEm", "desc"));
-  onSnapshot(q, (snap) => {
-    const ul = document.getElementById("lista");
-    ul.innerHTML = "";
-    snap.forEach((doc) => {
-      const li = document.createElement("li");
-      li.textContent = doc.data().nome;
-      ul.appendChild(li);
-    });
-  });
-</script>
+        document.getElementById(`save_${a.id}`).addEventListener("click", async ()=>{
+          const numero = document.getElementById(`num_${a.id}`).value;
+          const name = document.getElementById(`name_${a.id}`).value.trim();
+          if (!name) return alert("Nome não pode ficar vazio.");
 
+          await setDoc(doc(db,"students",a.id), {
+            name,
+            numero: numero === "" ? null : Number(numero),
+            updatedAt: serverTimestamp()
+          }, { merge:true });
+
+          setStatus("Aluno atualizado.");
+        });
+      }
+    }
+
+    async function salvarAluno(){
+      const turmaId = $("turmaSelect").value;
+      const name = $("nomeAluno").value.trim();
+      const numeroRaw = $("numero").value;
+
+      if (!turmaId) return alert("Selecione uma turma.");
+      if (!name) return alert("Digite o nome do aluno.");
+
+      setStatus("Salvando aluno...");
+
+      await addDoc(collection(db,"students"), {
+        turmaId,
+        name,
+        numero: numeroRaw === "" ? null : Number(numeroRaw),
+        createdAt: serverTimestamp()
+      });
+
+      $("nomeAluno").value = "";
+      $("numero").value = "";
+      setStatus("Aluno cadastrado.");
+      await listarAlunos();
+    }
+
+    function parseLinha(linha){
+      // aceita "12 - Nome" ou só "Nome"
+      const m = linha.match(/^(\d+)\s*-\s*(.+)$/);
+      if (m) return { numero: Number(m[1]), name: m[2].trim() };
+      return { numero: null, name: linha.trim() };
+    }
+
+    async function importarMassa(){
+      const turmaId = $("turmaSelect").value;
+      if (!turmaId) return alert("Selecione uma turma.");
+      const raw = $("massa").value.trim();
+      if (!raw) return alert("Cole pelo menos 1 linha.");
+
+      const linhas = raw.split("\n").map(x=>x.trim()).filter(Boolean);
+      setStatus("Importando...");
+
+      for (const l of linhas) {
+        const { numero, name } = parseLinha(l);
+        if (!name) continue;
+        await addDoc(collection(db,"students"), {
+          turmaId,
+          name,
+          numero,
+          createdAt: serverTimestamp()
+        });
+      }
+
+      $("massa").value = "";
+      setStatus("Importação concluída.");
+      await listarAlunos();
+    }
+
+    $("btnSalvar").addEventListener("click", salvarAluno);
+    $("btnImportar").addEventListener("click", importarMassa);
+    $("turmaSelect").addEventListener("change", listarAlunos);
+
+    await carregarTurmas();
+    await listarAlunos();
+    setStatus("OK.");
+  </script>
 </body>
 </html>
