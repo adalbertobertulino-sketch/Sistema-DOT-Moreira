@@ -1,98 +1,72 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Frequência — Sistema DOT Moreira</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Frequência — Sistema DOT</title>
   <link rel="stylesheet" href="./styles.css" />
-  <style>
-    /* Caso seu styles.css não exista ou esteja vazio, isso garante layout mínimo */
-    body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
-    header { background:#1f2937; color:#fff; padding:12px 16px; display:flex; gap:12px; align-items:center; }
-    header a { color:#fff; text-decoration:none; opacity:.9; }
-    header a:hover { opacity:1; text-decoration:underline; }
-
-    main { padding: 16px; max-width: 1000px; margin: 0 auto; }
-    .card { background:#fff; border-radius:10px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:16px; }
-
-    .grid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; }
-    @media (max-width: 900px){ .grid{ grid-template-columns:1fr; } }
-
-    label { display:block; font-weight:600; margin-bottom:6px; }
-    select, input, button { width:100%; padding:10px; border-radius:8px; border:1px solid #d1d5db; }
-    button { cursor:pointer; border:none; background:#a855f7; color:#fff; font-weight:700; }
-    button:hover { filter: brightness(.95); }
-
-    #status { margin-top: 10px; padding:10px; border-radius:8px; }
-    #status.info { background:#e0f2fe; color:#075985; }
-    #status.ok { background:#dcfce7; color:#166534; }
-    #status.alerta { background:#fef9c3; color:#854d0e; }
-    #status.erro { background:#fee2e2; color:#991b1b; }
-
-    ul { list-style:none; padding:0; margin:0; }
-    li { padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; gap:10px; align-items:center; }
-    li:last-child { border-bottom:none; }
-
-    .btnPresente { width:auto; padding:8px 10px; border-radius:8px; background:#16a34a; }
-    .btnPresente:hover { filter: brightness(.95); }
-  </style>
 </head>
 <body>
-
-  <header>
+  <header class="topbar">
     <strong>Sistema DOT Moreira</strong>
-    <span style="opacity:.6">|</span>
-    <a href="./dashboard.html">Painel</a>
-    <a href="./alunos.html">Alunos</a>
-    <a href="./frequencia.html"><b>Frequência</b></a>
-    <a href="./avisos.html">Avisos</a>
-    <a href="./pais.html">Pais</a>
-    <a href="./admin.html">Admin</a>
+    <nav class="menu">
+      <a href="./dashboard.html">Painel</a>
+      <a href="./alunos.html">Alunos</a>
+      <a href="./frequencia.html" class="active">Frequência</a>
+      <button id="btnSair" class="btn small">Sair</button>
+    </nav>
   </header>
 
-  <main>
-    <div class="card">
-      <h2 style="margin-top:0">Lançamento / Edição de Frequência</h2>
-      <p style="margin-top:6px; opacity:.8">
-        Se já existir frequência salva para a data, o sistema vai preencher automaticamente.
-        Somente DOT/Admin podem editar e justificar falta.
+  <main class="container">
+    <section class="card wide">
+      <h2>Lançamento / Edição de Frequência</h2>
+      <p class="hint">
+        Monitor: pode lançar (somente hoje). DOT/Admin: pode lançar e editar dias anteriores e justificar.
       </p>
 
-      <div class="grid">
-        <div>
-          <label for="turma">Turma</label>
-          <!-- IMPORTANTE: use turma SEM º/° para evitar bug -->
-          <select id="turma">
-            <option value="">Selecione</option>
-            <option value="1A">1A</option>
-            <option value="1B">1B</option>
-            <option value="2A">2A</option>
-            <option value="2B">2B</option>
-            <option value="3A">3A</option>
-            <option value="3B">3B</option>
-          </select>
-        </div>
+      <div class="row">
+        <label>Turma
+          <select id="selTurma"></select>
+        </label>
 
-        <div>
-          <label for="data">Data (pode ser anterior)</label>
-          <input type="date" id="data" />
-        </div>
+        <label>Data (pode ser anterior)
+          <input id="inData" type="date" />
+        </label>
 
-        <div style="display:flex; flex-direction:column; justify-content:flex-end;">
-          <button id="btnCarregar" type="button">Carregar alunos</button>
-        </div>
+        <label class="check">
+          <input id="chkSomenteAtivos" type="checkbox" checked />
+          Somente ativos
+        </label>
+
+        <input id="buscar" type="text" placeholder="Buscar (nome)" />
+
+        <button id="btnCarregar" class="btn small">Carregar alunos</button>
+        <button id="btnSalvarTudo" class="btn">Salvar tudo</button>
       </div>
 
-      <p id="status" class="info" style="display:block;">Selecione turma e data.</p>
-    </div>
+      <p id="status" class="status info">Aguardando…</p>
 
-    <div class="card">
-      <h3 style="margin-top:0">Lista</h3>
-      <ul id="listaAlunos"></ul>
-    </div>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Aluno</th>
+              <th>Turma</th>
+              <th>Matrícula</th>
+              <th>Situação</th>
+              <th>Presente</th>
+              <th>Faltas (0-10)</th>
+              <th>Justificativa (somente DOT/Admin)</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="7">Clique em “Carregar alunos”.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
-  <!-- ✅ seu JS da frequência -->
   <script type="module" src="./frequencia.js"></script>
 </body>
 </html>
