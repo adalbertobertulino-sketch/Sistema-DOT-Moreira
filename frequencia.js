@@ -36,12 +36,21 @@ function normalizeTurma(s) {
   return (s ?? "").toString().trim().toUpperCase().replace(/\s+/g, "");
 }
 
-function hojeISO() {
-  const d = new Date();
+function isoFromDate(d) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function hojeISO() {
+  return isoFromDate(new Date());
+}
+
+function ontemISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return isoFromDate(d);
 }
 
 function labelSituacao(v) {
@@ -57,8 +66,8 @@ function makeFreqId(alunoDocId, dataISO) {
 let CURRENT_USER = null;
 let CAN_WRITE = false;
 
-let ALUNOS = [];      // alunos carregados da turma (já filtrados)
-let BUSCA = "";       // filtro de nome
+let ALUNOS = [];
+let BUSCA = "";
 
 async function getMyRoles(uid) {
   const ref = doc(db, "users", uid);
@@ -136,7 +145,6 @@ function renderTabela() {
     `;
   }).join("");
 
-  // comportamento: presente => faltas = 0 e desabilita
   tbody.querySelectorAll("input[type=checkbox][data-presente]").forEach(chk => {
     chk.addEventListener("change", () => {
       const alunoId = chk.getAttribute("data-presente");
@@ -160,25 +168,20 @@ async function carregarAlunosDaTurma() {
   const filtroSit = ($("filtroSituacao").value || "").trim().toLowerCase();
 
   if (!turma) return setStatus("Selecione a turma.", "err");
-  if (!dataISO) return setStatus("Selecione a data.", "err");
+  if (!dataISO) return setStatus("Selecione a data (pode ser anterior).", "err");
 
   setStatus("Carregando alunos...", "info");
   $("subtitulo").textContent = `Turma: ${turma} | Data: ${dataISO}`;
 
-  // Consulta por turma, ordenado por nome
-  let qref = query(collection(db, "alunos"), where("turma", "==", turma), orderBy("nome"));
+  const qref = query(collection(db, "alunos"), where("turma", "==", turma), orderBy("nome"));
   const snap = await getDocs(qref);
 
   let all = snap.docs.map(d => ({ id: d.id, ...(d.data() || {}) }));
 
-  // Aplica filtro de situação
   if (filtroSit) {
     all = all.filter(a => (a.situacao || "ativo") === filtroSit);
-  } else {
-    // filtroSit vazio => todos
   }
 
-  // Por padrão (se você escolher "Somente Ativos"), já vem ativo
   ALUNOS = all;
 
   setStatus(`Alunos carregados: ${ALUNOS.length} ✅`, "ok");
@@ -209,7 +212,7 @@ async function salvarTudo() {
   const dataISO = $("dataInput").value;
 
   if (!turma) return setStatus("Selecione a turma.", "err");
-  if (!dataISO) return setStatus("Selecione a data.", "err");
+  if (!dataISO) return setStatus("Selecione a data (pode ser anterior).", "err");
   if (!ALUNOS.length) return setStatus("Carregue os alunos antes de salvar.", "err");
 
   setStatus("Salvando frequência...", "info");
@@ -256,7 +259,15 @@ async function sair() {
 window.addEventListener("DOMContentLoaded", () => {
   $("btnSair").addEventListener("click", sair);
 
-  $("dataInput").value = hojeISO();
+  // ✅ IMPORTANTE: só define "hoje" se estiver vazio (não sobrescreve sua escolha)
+  if (!$("dataInput").value) $("dataInput").value = hojeISO();
+
+  $("btnOntem").addEventListener("click", () => {
+    $("dataInput").value = ontemISO();
+  });
+  $("btnHoje").addEventListener("click", () => {
+    $("dataInput").value = hojeISO();
+  });
 
   $("btnCarregar").addEventListener("click", carregarAlunosDaTurma);
   $("btnSalvarTudo").addEventListener("click", salvarTudo);
@@ -267,7 +278,6 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   $("filtroSituacao").addEventListener("change", () => {
-    // recarrega alunos com o novo filtro
     carregarAlunosDaTurma();
   });
 
@@ -290,6 +300,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       setStatus(CAN_WRITE ? "Pronto ✅ (admin/dot pode salvar)" : "Pronto ✅ (somente leitura)", CAN_WRITE ? "ok" : "info");
       await carregarTurmas();
+      renderTabela();
     } catch (e) {
       console.error(e);
       setStatus("Erro ao iniciar: " + (e.code || e.message), "err");
