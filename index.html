@@ -1,22 +1,18 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sistema DOT Moreira • Login</title>
-  <link rel="stylesheet" href="./css/style.css" />
+  <title>Sistema DOT Moreira - Login</title>
 </head>
 <body>
-  <main class="container">
-    <section class="card">
-      <h1>Sistema DOT Moreira</h1>
-      <p class="muted">Entre com sua conta Google institucional.</p>
+  <h1>Sistema DOT Moreira</h1>
+  <p>Entre com sua conta Google institucional.</p>
 
-      <button id="btnLogin" class="btn btn-primary">Entrar com Google</button>
-      <p id="status" class="alert">Aguardando login…</p>
-    </section>
-  </main>
+  <button id="btnLogin">Entrar com Google</button>
+  <p id="status"></p>
 
+  <!-- IMPORTANTE: caminhos relativos corretos -->
   <script type="module" src="./js/firebase.js"></script>
   <script type="module" src="./js/auth.js"></script>
 </body>
