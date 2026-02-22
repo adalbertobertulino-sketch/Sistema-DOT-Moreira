@@ -43,10 +43,7 @@ function isoFromDate(d) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function hojeISO() {
-  return isoFromDate(new Date());
-}
-
+function hojeISO() { return isoFromDate(new Date()); }
 function ontemISO() {
   const d = new Date();
   d.setDate(d.getDate() - 1);
@@ -63,11 +60,26 @@ function makeFreqId(alunoDocId, dataISO) {
   return `${alunoDocId}__${dataISO}`;
 }
 
+function labelJust(j) {
+  if (!j || !j.status) return "—";
+  const tipo = j.tipo ? ` (${j.tipo})` : "";
+  return j.status === "justificada" ? `✅ Justificada${tipo}` : "—";
+}
+
 let CURRENT_USER = null;
-let CAN_WRITE = false;
+
+// Permissões
+let ROLES = [];
+let CAN_INSERT = false;   // monitor/dot/admin
+let CAN_EDIT = false;     // dot/admin
+let CAN_JUSTIFY = false;  // dot/admin
+let IS_MONITOR = false;
 
 let ALUNOS = [];
 let BUSCA = "";
+
+// Cache local de frequências carregadas (por alunoId)
+let FREQ_BY_ALUNO = new Map();
 
 async function getMyRoles(uid) {
   const ref = doc(db, "users", uid);
@@ -75,6 +87,15 @@ async function getMyRoles(uid) {
   if (!snap.exists()) return [];
   const data = snap.data() || {};
   return Array.isArray(data.roles) ? data.roles : [];
+}
+
+function refreshPermissoesUI() {
+  const parts = [];
+  parts.push(`Perfis: ${ROLES.length ? ROLES.join(", ") : "(nenhum)"}`);
+  parts.push(CAN_EDIT ? "Edição: ✅" : "Edição: ❌");
+  parts.push(CAN_JUSTIFY ? "Justificar: ✅" : "Justificar: ❌");
+  parts.push(CAN_INSERT ? "Lançar: ✅" : "Lançar: ❌");
+  $("permissoes").textContent = parts.join(" | ");
 }
 
 async function carregarTurmas() {
@@ -102,13 +123,55 @@ async function carregarTurmas() {
   setStatus("Turmas carregadas ✅", "ok");
 }
 
+function getLinhaUI(alunoId) {
+  const chk = document.querySelector(`input[data-presente="${alunoId}"]`);
+  const inp = document.querySelector(`input[data-faltas="${alunoId}"]`);
+
+  const presente = chk ? chk.checked : true;
+  let faltasNoDia = inp ? Number(inp.value || "0") : 0;
+
+  if (presente) faltasNoDia = 0;
+  if (Number.isNaN(faltasNoDia)) faltasNoDia = 0;
+  faltasNoDia = Math.max(0, Math.min(10, faltasNoDia));
+
+  return { presente, faltasNoDia };
+}
+
+function setLinhaUI(alunoId, presente, faltasNoDia) {
+  const chk = document.querySelector(`input[data-presente="${alunoId}"]`);
+  const inp = document.querySelector(`input[data-faltas="${alunoId}"]`);
+
+  if (chk) chk.checked = !!presente;
+  if (inp) {
+    const faltas = Number.isNaN(Number(faltasNoDia)) ? 0 : Number(faltasNoDia);
+    inp.value = String(Math.max(0, Math.min(10, faltas)));
+    inp.disabled = !!presente;
+  }
+}
+
+function updateJustUI(alunoId) {
+  const jEl = document.querySelector(`[data-justlabel="${alunoId}"]`);
+  const freq = FREQ_BY_ALUNO.get(alunoId) || null;
+  const j = freq?.justificativa || null;
+  if (jEl) jEl.textContent = labelJust(j);
+
+  const btn = document.querySelector(`button[data-justbtn="${alunoId}"]`);
+  if (!btn) return;
+
+  const { presente, faltasNoDia } = getLinhaUI(alunoId);
+  const podeMostrar = CAN_JUSTIFY && !presente && faltasNoDia > 0;
+
+  btn.disabled = !podeMostrar;
+  btn.title = podeMostrar ? "Justificar falta" : "Só DOT/Admin, com falta marcada";
+}
+
 function renderTabela() {
   const tbody = $("lista");
   const turma = normalizeTurma($("turmaSelect").value);
   const dataISO = $("dataInput").value;
 
   if (!turma || !dataISO) {
-    tbody.innerHTML = `<tr><td colspan="6" class="muted">Selecione turma e data.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="muted">Selecione turma e data.</td></tr>`;
     return;
   }
 
@@ -120,13 +183,16 @@ function renderTabela() {
   }
 
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="muted">Nenhum aluno para mostrar.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="muted">Nenhum aluno para mostrar.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = lista.map(a => {
     const sit = a.situacao || "ativo";
     const matricula = a.matricula || "";
+    const freq = FREQ_BY_ALUNO.get(a.id) || null;
+    const j = freq?.justificativa || null;
+
     return `
       <tr>
         <td><b>${esc(a.nome || "")}</b></td>
@@ -141,10 +207,19 @@ function renderTabela() {
         <td>
           <input type="number" min="0" max="10" value="0" data-faltas="${esc(a.id)}" disabled style="width:90px" />
         </td>
+
+        <td>
+          <span data-justlabel="${esc(a.id)}">${esc(labelJust(j))}</span>
+        </td>
+
+        <td>
+          <button class="btn" data-justbtn="${esc(a.id)}">Justificar</button>
+        </td>
       </tr>
     `;
   }).join("");
 
+  // Eventos de presente/faltas
   tbody.querySelectorAll("input[type=checkbox][data-presente]").forEach(chk => {
     chk.addEventListener("change", () => {
       const alunoId = chk.getAttribute("data-presente");
@@ -158,8 +233,31 @@ function renderTabela() {
         faltas.disabled = false;
         if (faltas.value === "0") faltas.value = "1";
       }
+      updateJustUI(alunoId);
     });
   });
+
+  tbody.querySelectorAll("input[type=number][data-faltas]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const alunoId = inp.getAttribute("data-faltas");
+      updateJustUI(alunoId);
+    });
+  });
+
+  // Botões de justificar
+  tbody.querySelectorAll("button[data-justbtn]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const alunoId = btn.getAttribute("data-justbtn");
+      await justificarFalta(alunoId);
+    });
+  });
+
+  // Aplicar valores carregados do Firestore (se já existirem)
+  for (const a of lista) {
+    const freq = FREQ_BY_ALUNO.get(a.id);
+    if (freq) setLinhaUI(a.id, !!freq.presente, Number(freq.faltasNoDia || 0));
+    updateJustUI(a.id);
+  }
 }
 
 async function carregarAlunosDaTurma() {
@@ -168,11 +266,12 @@ async function carregarAlunosDaTurma() {
   const filtroSit = ($("filtroSituacao").value || "").trim().toLowerCase();
 
   if (!turma) return setStatus("Selecione a turma.", "err");
-  if (!dataISO) return setStatus("Selecione a data (pode ser anterior).", "err");
+  if (!dataISO) return setStatus("Selecione a data.", "err");
 
   setStatus("Carregando alunos...", "info");
   $("subtitulo").textContent = `Turma: ${turma} | Data: ${dataISO}`;
 
+  // 1) alunos da turma
   const qref = query(collection(db, "alunos"), where("turma", "==", turma), orderBy("nome"));
   const snap = await getDocs(qref);
 
@@ -184,27 +283,47 @@ async function carregarAlunosDaTurma() {
 
   ALUNOS = all;
 
-  setStatus(`Alunos carregados: ${ALUNOS.length} ✅`, "ok");
+  // 2) carregar frequências existentes para esta data (1 por aluno, via ID aluno__data)
+  FREQ_BY_ALUNO = new Map();
+  let existentes = 0;
+
+  for (const a of ALUNOS) {
+    const fid = makeFreqId(a.id, dataISO);
+    const fsnap = await getDoc(doc(db, "frequencias", fid));
+    if (fsnap.exists()) {
+      FREQ_BY_ALUNO.set(a.id, { id: fid, ...(fsnap.data() || {}) });
+      existentes++;
+    }
+  }
+
+  setStatus(`Alunos: ${ALUNOS.length} | Frequências existentes nessa data: ${existentes} ✅`, "ok");
   renderTabela();
 }
 
-function getLinha(alunoId) {
-  const chk = document.querySelector(`input[data-presente="${alunoId}"]`);
-  const inp = document.querySelector(`input[data-faltas="${alunoId}"]`);
+function hasExistingForSomeone() {
+  return FREQ_BY_ALUNO && FREQ_BY_ALUNO.size > 0;
+}
 
-  const presente = chk ? chk.checked : true;
-  let faltasNoDia = inp ? Number(inp.value || "0") : 0;
+function isDateTodaySelected() {
+  return ($("dataInput").value || "") === hojeISO();
+}
 
-  if (presente) faltasNoDia = 0;
-  if (Number.isNaN(faltasNoDia)) faltasNoDia = 0;
-  faltasNoDia = Math.max(0, Math.min(10, faltasNoDia));
-
-  return { presente, faltasNoDia };
+/**
+ * Monitor:
+ * - pode salvar apenas se:
+ *   - data = hoje
+ *   - ainda NÃO existe frequência salva (nenhum registro para a data)
+ */
+function canMonitorSaveNow() {
+  if (!IS_MONITOR) return true;
+  if (!isDateTodaySelected()) return false;
+  if (hasExistingForSomeone()) return false;
+  return true;
 }
 
 async function salvarTudo() {
-  if (!CAN_WRITE) {
-    setStatus("Seu perfil não pode salvar frequência (precisa ser admin/dot).", "err");
+  if (!CAN_INSERT) {
+    setStatus("Seu perfil não pode lançar frequência.", "err");
     return;
   }
 
@@ -212,15 +331,37 @@ async function salvarTudo() {
   const dataISO = $("dataInput").value;
 
   if (!turma) return setStatus("Selecione a turma.", "err");
-  if (!dataISO) return setStatus("Selecione a data (pode ser anterior).", "err");
+  if (!dataISO) return setStatus("Selecione a data.", "err");
   if (!ALUNOS.length) return setStatus("Carregue os alunos antes de salvar.", "err");
+
+  // Regras do monitor
+  if (!canMonitorSaveNow()) {
+    setStatus("Monitor só pode lançar frequência de HOJE e apenas se ainda não existir lançamento para essa data.", "err");
+    return;
+  }
+
+  // Se já existe e não pode editar, bloquear
+  if (hasExistingForSomeone() && !CAN_EDIT) {
+    setStatus("Somente DOT/Admin podem editar frequência já lançada.", "err");
+    return;
+  }
 
   setStatus("Salvando frequência...", "info");
 
   let ok = 0;
   for (const a of ALUNOS) {
-    const { presente, faltasNoDia } = getLinha(a.id);
+    const { presente, faltasNoDia } = getLinhaUI(a.id);
     const freqId = makeFreqId(a.id, dataISO);
+
+    // Se já existe no Firestore, só DOT/Admin pode
+    const existed = FREQ_BY_ALUNO.has(a.id);
+    if (existed && !CAN_EDIT) {
+      continue; // segurança extra
+    }
+
+    // Mantém justificativa antiga, se houver, a não ser que a pessoa altere via botão
+    const old = FREQ_BY_ALUNO.get(a.id) || null;
+    const justificativa = old?.justificativa || null;
 
     const payload = {
       alunoId: a.id,
@@ -233,14 +374,20 @@ async function salvarTudo() {
       presente,
       faltasNoDia,
 
-      criadoPor: CURRENT_USER.uid,
-      criadoEm: serverTimestamp(),
+      justificativa: justificativa || null,
+
+      criadoPor: old?.criadoPor || CURRENT_USER.uid,
+      criadoEm: old?.criadoEm || serverTimestamp(),
+      atualizadoPor: CURRENT_USER.uid,
       atualizadoEm: serverTimestamp(),
     };
 
     try {
       await setDoc(doc(db, "frequencias", freqId), payload, { merge: true });
       ok++;
+
+      // Atualiza cache local
+      FREQ_BY_ALUNO.set(a.id, { id: freqId, ...payload });
     } catch (e) {
       console.error(e);
       setStatus("Erro salvando: " + (e.code || e.message), "err");
@@ -249,6 +396,89 @@ async function salvarTudo() {
   }
 
   setStatus(`Frequência salva ✅ (${ok}/${ALUNOS.length})`, "ok");
+  renderTabela();
+}
+
+async function justificarFalta(alunoId) {
+  if (!CAN_JUSTIFY) {
+    setStatus("Somente DOT/Admin podem justificar faltas.", "err");
+    return;
+  }
+
+  const turma = normalizeTurma($("turmaSelect").value);
+  const dataISO = $("dataInput").value;
+  if (!turma || !dataISO) return setStatus("Selecione turma e data.", "err");
+
+  // precisa existir frequência salva ou pelo menos os dados para salvar agora
+  const { presente, faltasNoDia } = getLinhaUI(alunoId);
+
+  if (presente || faltasNoDia <= 0) {
+    setStatus("Para justificar, o aluno precisa estar ausente e ter faltas > 0.", "err");
+    return;
+  }
+
+  // Tipo de documento (não anexamos, só registramos)
+  const tipo = prompt(
+    "Tipo de comprovação (ex.: Atestado médico, Declaração, Outro):",
+    "Atestado médico"
+  );
+  if (tipo === null) return;
+
+  const motivo = prompt(
+    "Motivo/observação (obrigatório). Ex.: apresentou atestado, consulta, etc.:",
+    ""
+  );
+  if (motivo === null) return;
+  if (!motivo.trim()) {
+    setStatus("Motivo é obrigatório para justificar.", "err");
+    return;
+  }
+
+  const aluno = ALUNOS.find(a => a.id === alunoId);
+  if (!aluno) return setStatus("Aluno não encontrado na lista.", "err");
+
+  const freqId = makeFreqId(alunoId, dataISO);
+
+  // Se já existe: OK (editar). Se não existe: vamos criar a frequência já com a falta e justificativa
+  const old = FREQ_BY_ALUNO.get(alunoId) || null;
+
+  const justificativa = {
+    status: "justificada",
+    tipo: (tipo || "").trim(),
+    motivo: motivo.trim(),
+    justificadoPor: CURRENT_USER.uid,
+    justificadoEm: serverTimestamp(),
+  };
+
+  const payload = {
+    alunoId,
+    nome: aluno?.nome || "",
+    turma: aluno?.turma || turma,
+    matricula: aluno?.matricula || "",
+    situacao: aluno?.situacao || "ativo",
+
+    data: dataISO,
+    presente: false,
+    faltasNoDia: faltasNoDia,
+
+    justificativa,
+
+    criadoPor: old?.criadoPor || CURRENT_USER.uid,
+    criadoEm: old?.criadoEm || serverTimestamp(),
+    atualizadoPor: CURRENT_USER.uid,
+    atualizadoEm: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(doc(db, "frequencias", freqId), payload, { merge: true });
+    FREQ_BY_ALUNO.set(alunoId, { id: freqId, ...payload });
+
+    setStatus(`Falta justificada ✅ (${aluno?.nome || alunoId})`, "ok");
+    renderTabela();
+  } catch (e) {
+    console.error(e);
+    setStatus("Erro justificando: " + (e.code || e.message), "err");
+  }
 }
 
 async function sair() {
@@ -259,15 +489,11 @@ async function sair() {
 window.addEventListener("DOMContentLoaded", () => {
   $("btnSair").addEventListener("click", sair);
 
-  // ✅ IMPORTANTE: só define "hoje" se estiver vazio (não sobrescreve sua escolha)
+  // Só define "hoje" se estiver vazio (não sobrescreve sua escolha)
   if (!$("dataInput").value) $("dataInput").value = hojeISO();
 
-  $("btnOntem").addEventListener("click", () => {
-    $("dataInput").value = ontemISO();
-  });
-  $("btnHoje").addEventListener("click", () => {
-    $("dataInput").value = hojeISO();
-  });
+  $("btnOntem").addEventListener("click", () => { $("dataInput").value = ontemISO(); });
+  $("btnHoje").addEventListener("click", () => { $("dataInput").value = hojeISO(); });
 
   $("btnCarregar").addEventListener("click", carregarAlunosDaTurma);
   $("btnSalvarTudo").addEventListener("click", salvarTudo);
@@ -277,12 +503,11 @@ window.addEventListener("DOMContentLoaded", () => {
     renderTabela();
   });
 
-  $("filtroSituacao").addEventListener("change", () => {
-    carregarAlunosDaTurma();
-  });
+  $("filtroSituacao").addEventListener("change", () => { carregarAlunosDaTurma(); });
 
   $("turmaSelect").addEventListener("change", () => {
     ALUNOS = [];
+    FREQ_BY_ALUNO = new Map();
     renderTabela();
   });
 
@@ -295,10 +520,16 @@ window.addEventListener("DOMContentLoaded", () => {
     CURRENT_USER = user;
 
     try {
-      const roles = await getMyRoles(user.uid);
-      CAN_WRITE = roles.includes("admin") || roles.includes("dot");
+      ROLES = await getMyRoles(user.uid);
 
-      setStatus(CAN_WRITE ? "Pronto ✅ (admin/dot pode salvar)" : "Pronto ✅ (somente leitura)", CAN_WRITE ? "ok" : "info");
+      IS_MONITOR = ROLES.includes("monitor");
+      CAN_INSERT = ROLES.includes("admin") || ROLES.includes("dot") || ROLES.includes("monitor");
+      CAN_EDIT = ROLES.includes("admin") || ROLES.includes("dot");
+      CAN_JUSTIFY = ROLES.includes("admin") || ROLES.includes("dot");
+
+      refreshPermissoesUI();
+
+      setStatus("Pronto ✅", "ok");
       await carregarTurmas();
       renderTabela();
     } catch (e) {
