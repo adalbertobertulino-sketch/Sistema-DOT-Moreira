@@ -1,3 +1,5 @@
+// alunos.js (APAGUE TUDO e COLE)
+
 import { auth, db } from "./firebase.js";
 import {
   onAuthStateChanged,
