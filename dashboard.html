@@ -1,184 +1,92 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Dashboard - Sistema DOT</title>
-    <link rel="stylesheet" href="styles.css" />
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        background: #f4f6f8;
-      }
-      header {
-        background: #111827;
-        color: #fff;
-        padding: 14px 16px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-      header .brand {
-        font-weight: 800;
-      }
-      header .nav {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      header a,
-      header button {
-        color: #fff;
-        text-decoration: none;
-        background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        padding: 8px 10px;
-        border-radius: 10px;
-        cursor: pointer;
-        font-weight: 700;
-        font-size: 13px;
-      }
-      header a:hover,
-      header button:hover {
-        background: rgba(255, 255, 255, 0.08);
-      }
-      main {
-        padding: 18px;
-        max-width: 980px;
-        margin: 0 auto;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 14px;
-      }
-      .card {
-        background: #fff;
-        border-radius: 14px;
-        padding: 16px;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
-      }
-      .title {
-        margin: 0 0 10px;
-        font-size: 18px;
-      }
-      .kv {
-        margin: 6px 0;
-        color: #222;
-      }
-      .pill {
-        display: inline-block;
-        background: #eef2ff;
-        color: #3730a3;
-        padding: 4px 8px;
-        border-radius: 999px;
-        font-weight: 800;
-        font-size: 12px;
-        margin-right: 6px;
-        margin-top: 6px;
-      }
-      #status {
-        font-size: 13px;
-        color: #555;
-      }
-    </style>
-  </head>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard – Sistema DOT</title>
 
-  <body>
-    <header>
-      <div class="brand">Sistema DOT Moreira</div>
-      <div class="nav" id="navLinks">
-        <!-- links surgem dinamicamente conforme role -->
-        <a href="alunos.html">Alunos</a>
-        <a href="faltas.html">Frequência</a>
-        <a href="avisos.html">Avisos</a>
-        <a href="pais.html" id="linkPais" style="display: none">Pais</a>
-        <a href="admin.html" id="linkAdmin" style="display: none">Admin</a>
-        <button id="btnSair">Sair</button>
-      </div>
-    </header>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <main>
-      <div class="grid">
-        <div class="card">
-          <h2 class="title">Bem-vindo(a)</h2>
-          <div id="status">Carregando perfil...</div>
-          <div class="kv"><b>Nome:</b> <span id="nome"></span></div>
-          <div class="kv"><b>Email:</b> <span id="email"></span></div>
-          <div class="kv"><b>UID:</b> <span id="uid"></span></div>
-          <div class="kv"><b>Roles:</b> <span id="roles"></span></div>
-        </div>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f6fa;
+      margin: 0;
+      padding: 0;
+    }
 
-        <div class="card">
-          <h2 class="title">Atalhos</h2>
-          <div class="kv">• Alunos: cadastro e consulta</div>
-          <div class="kv">• Frequência: lançamentos</div>
-          <div class="kv">• Avisos: comunicados</div>
-          <div class="kv">
-            • Admin: liberar novos administradores (somente admin)
-          </div>
-        </div>
-      </div>
-    </main>
+    header {
+      background: #2f3640;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 20px;
+    }
 
-    <script type="module">
-      import {
-        auth,
-        db,
-        onAuthStateChanged,
-        signOut,
-        doc,
-        getDoc,
-        hasRole,
-      } from "./firebase.js";
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
 
-      const $ = (id) => document.getElementById(id);
+    h2 {
+      margin-top: 0;
+    }
 
-      async function load() {
-        onAuthStateChanged(auth, async (user) => {
-          if (!user) {
-            window.location.href = "index.html";
-            return;
-          }
+    p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
 
-          $("uid").textContent = user.uid || "";
-          $("email").textContent = user.email || "";
-          $("nome").textContent = user.displayName || "";
+    strong {
+      color: #333;
+    }
 
-          const ref = doc(db, "users", user.uid);
-          const snap = await getDoc(ref);
-          const profile = snap.data();
+    .btn {
+      margin-top: 20px;
+      padding: 10px 16px;
+      background: #c0392b;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
 
-          const roles = profile?.roles || {};
-          const roleNames = Object.keys(roles).filter((k) => roles[k]);
+    .btn:hover {
+      background: #e74c3c;
+    }
 
-          $("roles").innerHTML = roleNames
-            .map((r) => `<span class="pill">${r}</span>`)
-            .join(" ");
+    .status {
+      margin-top: 10px;
+      color: #555;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
 
-          $("status").textContent = "Perfil carregado ✅";
+<header>
+  Sistema DOT Moreira – Dashboard
+</header>
 
-          // mostra Admin se for admin
-          if (hasRole(profile, "admin")) {
-            $("linkAdmin").style.display = "inline-block";
-          }
+<div class="container">
+  <h2>Bem-vindo(a)</h2>
 
-          // mostra Pais se for pais (ainda vamos criar depois)
-          if (hasRole(profile, "pais")) {
-            $("linkPais").style.display = "inline-block";
-          }
+  <p><strong>Nome:</strong> <span id="nome">Carregando...</span></p>
+  <p><strong>Email:</strong> <span id="email">Carregando...</span></p>
+  <p><strong>UID:</strong> <span id="uid">Carregando...</span></p>
+  <p><strong>Perfis:</strong> <span id="roles">Carregando...</span></p>
 
-          $("btnSair").onclick = async () => {
-            await signOut(auth);
-            window.location.href = "index.html";
-          };
-        });
-      }
+  <button id="btnSair" class="btn">Sair</button>
 
-      load();
-    </script>
-  </body>
+  <div class="status" id="status"></div>
+</div>
+
+<!-- JS -->
+<script type="module" src="./dashboard.js"></script>
+
+</body>
 </html>
