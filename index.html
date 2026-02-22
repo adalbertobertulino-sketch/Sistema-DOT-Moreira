@@ -7,57 +7,45 @@
   <style>
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f2f2f2;
+      font-family: Arial, sans-serif;
     }
     .card {
-      background: #ffffff;
+      background: white;
       padding: 30px;
       border-radius: 10px;
       width: 320px;
       text-align: center;
       box-shadow: 0 4px 10px rgba(0,0,0,0.15);
     }
-    h1 {
-      margin-bottom: 20px;
-      font-size: 22px;
-    }
     button {
       background: #db4437;
-      color: #fff;
+      color: white;
       border: none;
-      border-radius: 5px;
       padding: 12px;
       width: 100%;
       font-size: 16px;
+      border-radius: 5px;
       cursor: pointer;
     }
-    p {
-      margin-top: 15px;
-      font-size: 14px;
-      color: #444;
-    }
+    p { margin-top: 15px; font-size: 14px; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h1>Sistema DOT Moreira</h1>
+    <h2>Sistema DOT Moreira</h2>
 
-    <!-- 🔴 ESTE BOTÃO É OBRIGATÓRIO -->
     <button id="btnLogin">Entrar com Google</button>
-
-    <!-- 🔴 ESTE STATUS É OBRIGATÓRIO -->
-    <p id="status">Aguardando login...</p>
+    <p id="status">Aguardando login</p>
   </div>
 
-  <!-- 🔥 JS DO SISTEMA -->
-  <script type="module" src="./firebase.js"></script>
-  <script type="module" src="./auth.js"></script>
+  <!-- 🔥 UM ÚNICO SCRIPT -->
+  <script type="module" src="login.js"></script>
 
 </body>
 </html>
