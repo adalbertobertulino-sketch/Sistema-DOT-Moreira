@@ -24,8 +24,11 @@
   <main class="container">
 
     <section class="card">
-      <h1>Lançamento de Frequência</h1>
-      <p class="muted">Escolha a turma e a data (pode ser dia anterior) e clique em “Carregar alunos”.</p>
+      <h1>Lançamento / Edição de Frequência</h1>
+      <p class="muted">
+        Se já existir frequência salva para a data, o sistema vai preencher automaticamente.
+        <br/>Somente <b>DOT/Admin</b> podem editar e justificar falta.
+      </p>
 
       <div id="status" class="msg info">Carregando...</div>
 
@@ -39,7 +42,6 @@
 
         <div>
           <label>Data (pode ser anterior)</label>
-          <!-- SEM min / max: libera dias anteriores -->
           <input id="dataInput" type="date" />
           <div class="muted" style="margin-top:6px;">
             Dica: você pode digitar a data no formato AAAA-MM-DD.
@@ -68,11 +70,13 @@
         <button id="btnCarregar" class="btn">Carregar alunos</button>
         <button id="btnSalvarTudo" class="btn primary">Salvar tudo</button>
       </div>
+
+      <p class="muted" id="subtitulo" style="margin-top:10px;">—</p>
+      <p class="muted" id="permissoes" style="margin-top:6px;">—</p>
     </section>
 
     <section class="card">
       <h2>Lista</h2>
-      <p class="muted" id="subtitulo">—</p>
 
       <div class="tableWrap">
         <table class="table">
@@ -84,16 +88,19 @@
               <th>Situação</th>
               <th>Presente</th>
               <th>Faltas no dia (0-10)</th>
+              <th>Justificativa</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody id="lista">
-            <tr><td colspan="6" class="muted">Selecione a turma e clique em “Carregar alunos”.</td></tr>
+            <tr><td colspan="8" class="muted">Selecione a turma e clique em “Carregar alunos”.</td></tr>
           </tbody>
         </table>
       </div>
 
       <p class="muted" style="margin-top:10px;">
         Se “Presente” estiver marcado, faltas ficam 0 automaticamente.
+        <br/>Justificativa só aparece para DOT/Admin e só quando houver falta.
       </p>
     </section>
 
