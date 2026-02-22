@@ -1,115 +1,71 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Alunos — Sistema DOT Moreira</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alunos — Sistema DOT</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-
   <header class="topbar">
-    <div class="brand">Sistema DOT Moreira</div>
+    <strong>Sistema DOT Moreira</strong>
     <nav class="menu">
       <a href="./dashboard.html">Painel</a>
-      <a class="active" href="./alunos.html">Alunos</a>
+      <a href="./alunos.html" class="active">Alunos</a>
       <a href="./frequencia.html">Frequência</a>
-      <a href="./avisos.html">Avisos</a>
-      <a href="./pais.html">Pais</a>
-      <a href="./admin.html">Admin</a>
+      <button id="btnSair" class="btn small">Sair</button>
     </nav>
-    <button id="btnSair" class="btn">Sair</button>
   </header>
 
-  <main class="container">
-
+  <main class="container two">
     <section class="card">
-      <h1>Cadastro de Alunos</h1>
-      <p class="muted">Somente turmas permitidas do seu usuário aparecem aqui.</p>
+      <h2>Cadastro de Alunos</h2>
+      <p class="hint">Somente DOT e admin podem cadastrar/alterar. Admin pode excluir.</p>
 
-      <div id="status" class="msg info">Carregando...</div>
+      <label>Nome completo (obrigatório)
+        <input id="inNome" type="text" placeholder="Nome do aluno" />
+      </label>
 
-      <div class="grid">
-        <div>
-          <label>Nome completo (obrigatório)</label>
-          <input id="nome" type="text" placeholder="Nome completo" />
-        </div>
+      <label>Turma (obrigatório)
+        <input id="inTurma" type="text" placeholder="Ex: 2A" />
+      </label>
 
-        <div>
-          <label>Turma (obrigatório)</label>
-          <select id="turma"></select>
-          <div class="muted" style="margin-top:6px;">
-            Se a turma não aparece, adicione em <b>users/SEU_UID/turmasPermitidas</b>.
-          </div>
-        </div>
+      <label>Matrícula (opcional)
+        <input id="inMatricula" type="text" placeholder="Opcional" />
+      </label>
 
-        <div>
-          <label>Matrícula (opcional)</label>
-          <input id="matricula" type="text" placeholder="Somente números (se tiver)" />
-        </div>
-
-        <div>
-          <label>Situação</label>
-          <select id="situacao">
-            <option value="ativo" selected>Ativo</option>
-            <option value="desistente">Desistente</option>
-            <option value="evadido">Evadido</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="btnSalvar" class="btn primary">Salvar aluno</button>
-      </div>
+      <button id="btnSalvar" class="btn">Salvar aluno</button>
+      <p id="statusForm" class="status info">Pronto.</p>
     </section>
 
-    <section class="card">
+    <section class="card wide">
       <h2>Lista de alunos</h2>
 
-      <div class="grid">
-        <div>
-          <label>Filtrar por turma</label>
-          <select id="filtroTurma"></select>
-        </div>
-
-        <div>
-          <label>Filtrar por situação</label>
-          <select id="filtroSituacao">
-            <option value="" selected>Todas</option>
-            <option value="ativo">Ativo</option>
-            <option value="desistente">Desistente</option>
-            <option value="evadido">Evadido</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Buscar (nome)</label>
-          <input id="busca" type="text" placeholder="Digite parte do nome..." />
-        </div>
-
-        <div class="actions" style="justify-content:flex-start;">
-          <button id="btnRecarregar" class="btn">Recarregar</button>
-        </div>
+      <div class="row">
+        <input id="filtroTurma" type="text" placeholder="Filtrar por turma (ex: 2A)" />
+        <input id="buscarNome" type="text" placeholder="Buscar (nome)" />
+        <button id="btnRecarregar" class="btn small">Recarregar</button>
       </div>
 
-      <div class="tableWrap">
-        <table class="table">
+      <div class="tablewrap">
+        <table>
           <thead>
             <tr>
               <th>Nome</th>
               <th>Turma</th>
               <th>Matrícula</th>
               <th>Situação</th>
-              <th>Alterar situação</th>
+              <th>Ações</th>
             </tr>
           </thead>
-          <tbody id="lista">
-            <tr><td colspan="5" class="muted">Carregando...</td></tr>
+          <tbody id="tbodyAlunos">
+            <tr><td colspan="5">Carregando…</td></tr>
           </tbody>
         </table>
       </div>
-    </section>
 
+      <p id="statusLista" class="status info">Carregando alunos…</p>
+    </section>
   </main>
 
   <script type="module" src="./alunos.js"></script>
