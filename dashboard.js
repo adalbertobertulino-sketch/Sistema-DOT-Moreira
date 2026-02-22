@@ -1,58 +1,45 @@
-import { auth, db } from "./firebase.js";
-import {
-  onAuthStateChanged,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+// dashboard.js (COMPLETO)
+import { auth, watchAuth, getMyProfile, logout } from "./firebase.js";
 
-import {
-  doc,
-  getDoc,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+const elNome = document.getElementById("nome");
+const elEmail = document.getElementById("email");
+const elUid = document.getElementById("uid");
+const elRoles = document.getElementById("roles");
+const elTurmas = document.getElementById("turmas");
+const elStatus = document.getElementById("status");
+const btnSair = document.getElementById("btnSair");
 
-function $(id) { return document.getElementById(id); }
-
-function setStatus(msg, kind = "info") {
-  const el = $("status");
-  if (!el) return;
-  el.textContent = msg;
-  el.className = `msg ${kind}`;
-  console.log(msg);
+function setStatus(msg, kind="info") {
+  elStatus.textContent = msg;
+  elStatus.className = `status ${kind}`;
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  $("btnSair")?.addEventListener("click", async () => {
-    await signOut(auth);
-    location.href = "./index.html";
-  });
+btnSair?.addEventListener("click", async () => {
+  await logout();
+  window.location.href = "./index.html";
+});
 
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      location.href = "./index.html";
-      return;
-    }
+watchAuth(async (user) => {
+  if (!user) {
+    window.location.href = "./index.html";
+    return;
+  }
 
-    try {
-      $("nome").textContent = user.displayName || "";
-      $("email").textContent = user.email || "";
-      $("uid").textContent = user.uid || "";
+  const profile = await getMyProfile();
+  if (!profile) {
+    setStatus("Perfil não encontrado. Tente sair e entrar novamente.", "err");
+    return;
+  }
 
-      const ref = doc(db, "users", user.uid);
-      const snap = await getDoc(ref);
+  elNome.textContent = profile.nome || user.displayName || "";
+  elEmail.textContent = profile.email || user.email || "";
+  elUid.textContent = user.uid;
 
-      if (!snap.exists()) {
-        setStatus("Perfil não encontrado em users/" + user.uid, "err");
-        $("roles").textContent = "N/A";
-        return;
-      }
+  const roles = Array.isArray(profile.roles) ? profile.roles : [];
+  elRoles.textContent = roles.length ? roles.join(", ") : "(sem perfil)";
 
-      const data = snap.data() || {};
-      const roles = Array.isArray(data.roles) ? data.roles : [];
-      $("roles").textContent = roles.join(", ") || "sem roles";
+  const turmas = Array.isArray(profile.turmasPermitidas) ? profile.turmasPermitidas : [];
+  elTurmas.textContent = turmas.length ? turmas.join(", ") : "(nenhuma)";
 
-      setStatus("Perfil carregado com sucesso.", "ok");
-    } catch (e) {
-      console.error(e);
-      setStatus("Erro carregando perfil: " + (e.code || e.message), "err");
-    }
-  });
+  setStatus("Perfil carregado com sucesso.", "ok");
 });
