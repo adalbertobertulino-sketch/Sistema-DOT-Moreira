@@ -1,33 +1,71 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sistema DOT Moreira - Login</title>
-  <style>
-    body { font-family: Arial, sans-serif; background:#f6f7fb; margin:0; }
-    .box { max-width:520px; margin:80px auto; background:#fff; padding:28px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.08); }
-    h1 { margin:0 0 12px; }
-    button { width:100%; padding:14px 16px; border:0; border-radius:10px; background:#c7657a; color:#fff; font-size:16px; cursor:pointer; }
-    button:disabled { opacity:.6; cursor:not-allowed; }
-    #status { margin-top:12px; color:#555; white-space:pre-wrap; }
-    .hint { margin-top:10px; font-size:12px; color:#888; }
-  </style>
-</head>
-<body>
-  <div class="box">
-    <h1>Sistema DOT Moreira</h1>
+// auth.js
+import { auth, provider } from "./firebase.js";
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-    <button id="btnLogin">Entrar com Google</button>
-    <div id="status">Pronto para login.</div>
+function setStatus(msg) {
+  const el = document.getElementById("status");
+  if (el) el.textContent = msg;
+  console.log("[STATUS]", msg);
+}
 
-    <div class="hint">
-      Se não abrir popup, permita pop-ups para este site.
-      Se ainda assim não entrar, o sistema usa redirect automaticamente.
-    </div>
-  </div>
+// 1) Se voltou de redirect, tenta concluir aqui
+getRedirectResult(auth)
+  .then((result) => {
+    if (result && result.user) {
+      setStatus("Login concluído (redirect). Indo para o painel...");
+      window.location.href = "dashboard.html";
+    }
+  })
+  .catch((err) => {
+    console.error("Redirect error:", err);
+    setStatus("Erro no redirect: " + (err?.code || err?.message || err));
+  });
 
-  <!-- IMPORTANTE: firebase.js e auth.js devem existir na raiz -->
-  <script type="module" src="./auth.js"></script>
-</body>
-</html>
+// 2) Se já está logado, manda para o dashboard
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    setStatus("Logado como " + (user.email || user.uid) + ". Indo para o painel...");
+    window.location.href = "dashboard.html";
+  } else {
+    setStatus("Aguardando login...");
+  }
+});
+
+// 3) Clique do botão
+const btn = document.getElementById("btnLogin");
+if (!btn) {
+  console.warn("Não achei #btnLogin no HTML.");
+} else {
+  btn.addEventListener("click", async () => {
+    setStatus("Abrindo login do Google (popup)...");
+    try {
+      await signInWithPopup(auth, provider);
+      // se deu certo, o onAuthStateChanged vai redirecionar
+    } catch (e) {
+      console.error("Popup error:", e);
+
+      // popup bloqueado? cai no redirect
+      const code = e?.code || "";
+      if (
+        code === "auth/popup-blocked" ||
+        code === "auth/popup-closed-by-user" ||
+        code === "auth/cancelled-popup-request"
+      ) {
+        setStatus("Popup bloqueado/fechado. Tentando redirect...");
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (e2) {
+          console.error("Redirect start error:", e2);
+          setStatus("Erro ao iniciar redirect: " + (e2?.code || e2?.message || e2));
+        }
+      } else {
+        setStatus("Erro no login: " + (e?.code || e?.message || e));
+      }
+    }
+  });
+}
