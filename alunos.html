@@ -1,122 +1,132 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sistema DOT Moreira - Alunos</title>
-  <link rel="stylesheet" href="styles.css" />
-
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-
-  <script src="firebase.js"></script>
-  <script src="app.js"></script>
+  <meta charset="UTF-8">
+  <title>Cadastro de Alunos – Sistema DOT</title>
 </head>
 <body>
-  <div id="topbar"></div>
-  <div class="container">
 
-    <div class="grid">
-      <div class="card">
-        <h2>Cadastrar aluno</h2>
-        <div class="field">
-          <label>Nome</label>
-          <input id="nome" placeholder="Nome do aluno" />
-        </div>
-        <div class="field">
-          <label>Turma</label>
-          <input id="turma" placeholder="Ex.: 1A" />
-        </div>
-        <div class="field">
-          <label>RA (opcional)</label>
-          <input id="ra" placeholder="Matrícula/RA" />
-        </div>
-        <div class="field">
-          <label>Emails dos pais (opcional, separados por vírgula)</label>
-          <input id="pais" placeholder="pai@email.com, mae@email.com" />
-        </div>
-        <button class="btn primary" onclick="addStudent()">Salvar</button>
-        <p class="small" id="msg"></p>
-      </div>
+<h2>Cadastro de Alunos</h2>
+<p id="status">Verificando acesso...</p>
 
-      <div class="card">
-        <h2>Importar (copiar do Keep e colar)</h2>
-        <p class="small">Formato por linha:</p>
-        <p class="small"><b>Nome - Turma - RA - emailsPais</b></p>
-        <textarea id="importText" placeholder="João da Silva - 1A - 123 - pai@x.com, mae@y.com"></textarea>
-        <button class="btn primary" onclick="importText()">Importar</button>
-        <p class="small" id="impMsg"></p>
-      </div>
-    </div>
+<form id="formAluno" style="display:none">
+  <label>Nome completo *</label><br>
+  <input type="text" id="nome" required><br><br>
 
-    <div class="card" style="margin-top:14px;">
-      <h2>Lista de alunos</h2>
-      <div id="list" class="small">Carregando…</div>
-    </div>
+  <label>Turma *</label><br>
+  <input type="text" id="turma" required><br><br>
 
-  </div>
+  <label>Matrícula (opcional)</label><br>
+  <input type="text" id="matricula"><br><br>
 
-  <script>
-    let state = { me:null, user:null };
+  <button type="submit">Cadastrar aluno</button>
+</form>
 
-    async function refresh(){
-      const items = await listStudents();
-      $("#list").innerHTML = items.length ? `
-        <table class="table">
-          <thead>
-            <tr><th>Nome</th><th>Turma</th><th>RA</th><th>Pais</th></tr>
-          </thead>
-          <tbody>
-            ${items.map(s => `
-              <tr>
-                <td>${s.name || ""}</td>
-                <td>${s.turma || ""}</td>
-                <td>${s.ra || ""}</td>
-                <td>${(s.parentEmails || []).join(", ")}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      ` : "Nenhum aluno cadastrado.";
+<hr>
+
+<h3>Alunos cadastrados</h3>
+<ul id="lista"></ul>
+
+<br>
+<button onclick="window.location.href='dashboard.html'">Voltar</button>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    getDocs, 
+    serverTimestamp,
+    doc,
+    getDoc
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+    authDomain: "sistema-dot.firebaseapp.com",
+    projectId: "sistema-dot",
+    storageBucket: "sistema-dot.firebasestorage.app",
+    messagingSenderId: "1003611331429",
+    appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const statusEl = document.getElementById("status");
+  const form = document.getElementById("formAluno");
+  const lista = document.getElementById("lista");
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "index.html";
+      return;
     }
 
-    async function addStudent(){
-      try{
-        $("#msg").innerText = "Salvando…";
-        await createStudent({
-          name: $("#nome").value,
-          turma: $("#turma").value,
-          ra: $("#ra").value,
-          parentEmails: $("#pais").value
-        }, state.me);
-        $("#msg").innerText = "✅ Aluno cadastrado!";
-        $("#nome").value = ""; $("#turma").value=""; $("#ra").value=""; $("#pais").value="";
-        await refresh();
-      }catch(e){
-        $("#msg").innerText = "❌ " + e.message;
-      }
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      statusEl.textContent = "Usuário sem perfil.";
+      return;
     }
 
-    async function importText(){
-      try{
-        $("#impMsg").innerText = "Importando…";
-        await importStudentsFromText($("#importText").value, state.me);
-        $("#impMsg").innerText = "✅ Importação concluída!";
-        $("#importText").value = "";
-        await refresh();
-      }catch(e){
-        $("#impMsg").innerText = "❌ " + e.message;
-      }
+    const role = snap.data().role || [];
+
+    if (!role.includes("dot") && !role.includes("admin")) {
+      alert("Apenas professor DOT ou ADMIN pode cadastrar alunos.");
+      window.location.href = "dashboard.html";
+      return;
     }
 
-    (async function(){
-      renderTopbar("alunos");
-      const { user, me } = await requireAuth();
-      state.user=user; state.me=me;
-      await refresh();
-    })();
-  </script>
+    statusEl.textContent = "Acesso liberado para cadastro.";
+    form.style.display = "block";
+    carregarAlunos();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const nome = document.getElementById("nome").value.trim();
+    const turma = document.getElementById("turma").value.trim();
+    const matricula = document.getElementById("matricula").value.trim();
+
+    if (!nome || !turma) {
+      alert("Nome e turma são obrigatórios.");
+      return;
+    }
+
+    await addDoc(collection(db, "alunos"), {
+      nome,
+      turma,
+      matricula: matricula || null,
+      criadoEm: serverTimestamp()
+    });
+
+    form.reset();
+    carregarAlunos();
+  });
+
+  async function carregarAlunos() {
+    lista.innerHTML = "";
+    const snap = await getDocs(collection(db, "alunos"));
+
+    snap.forEach(doc => {
+      const a = doc.data();
+      const li = document.createElement("li");
+
+      li.textContent =
+        a.nome +
+        " | Turma: " + a.turma +
+        (a.matricula ? " | Matrícula: " + a.matricula : "");
+
+      lista.appendChild(li);
+    });
+  }
+</script>
+
 </body>
 </html>
