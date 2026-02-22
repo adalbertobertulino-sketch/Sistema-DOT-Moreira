@@ -1,304 +1,238 @@
-import { auth, db } from "./firebase.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+// alunos.js (COMPLETO)
+import { auth, watchAuth, db, fb, getMyProfile, logout } from "./firebase.js";
 
-function $(id){ return document.getElementById(id); }
+const btnSair = document.getElementById("btnSair");
+btnSair?.addEventListener("click", async () => { await logout(); window.location.href="./index.html"; });
 
-function setStatus(msg, kind="info"){
-  const el = $("status");
-  el.textContent = msg;
-  el.className = `msg ${kind}`;
-  console.log(msg);
+const inNome = document.getElementById("inNome");
+const inTurma = document.getElementById("inTurma");
+const inMatricula = document.getElementById("inMatricula");
+const btnSalvar = document.getElementById("btnSalvar");
+const statusForm = document.getElementById("statusForm");
+
+const filtroTurma = document.getElementById("filtroTurma");
+const buscarNome = document.getElementById("buscarNome");
+const btnRecarregar = document.getElementById("btnRecarregar");
+const tbody = document.getElementById("tbodyAlunos");
+const statusLista = document.getElementById("statusLista");
+
+let me = null;
+
+function setForm(msg, kind="info"){ statusForm.textContent = msg; statusForm.className = `status ${kind}`; }
+function setList(msg, kind="info"){ statusLista.textContent = msg; statusLista.className = `status ${kind}`; }
+
+function turmaUpper(v){ return (v||"").trim().toUpperCase(); }
+function nomeLower(v){ return (v||"").trim().toLowerCase(); }
+
+function canManage() {
+  const roles = Array.isArray(me?.roles) ? me.roles : [];
+  return roles.includes("admin") || roles.includes("dot");
 }
-
-function esc(s) {
-  return (s ?? "").toString()
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function isAdmin() {
+  const roles = Array.isArray(me?.roles) ? me.roles : [];
+  return roles.includes("admin");
 }
-
-function normalizeText(s) {
-  return (s ?? "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-function onlyDigits(s){ return (s ?? "").toString().replace(/\D+/g, ""); }
-
-function normSituacao(v) {
-  const s = (v ?? "ativo").toString().trim().toLowerCase();
-  if (s === "desistente") return "desistente";
-  if (s === "evadido") return "evadido";
-  return "ativo";
-}
-
-/**
- * ID ÚNICO:
- * - com matrícula: TURMA__M__MATRICULA
- * - sem matrícula: TURMA__N__NOME_NORMALIZADO
- */
-function buildAlunoId({ turma, matricula, nome }) {
-  const t = (turma ?? "").toString().trim().toUpperCase();
-  const m = onlyDigits(matricula);
-  if (m) return `${t}__M__${m}`;
-  const n = normalizeText(nome).replace(/\s+/g, "_");
-  return `${t}__N__${n}`;
-}
-
-let CURRENT_USER = null;
-let ROLES = [];
-let TURMAS_PERMITIDAS = [];
-let CAN_WRITE = false;
-
-let ALUNOS = []; // cache
-
-async function getMyUserDoc(uid){
-  const snap = await getDoc(doc(db, "users", uid));
-  return snap.exists() ? snap.data() : {};
-}
-
-function preencherSelectTurmas(selectEl, turmas, incluirTodas=false){
-  selectEl.innerHTML = "";
-  if (incluirTodas) {
-    const optAll = document.createElement("option");
-    optAll.value = "";
-    optAll.textContent = "Todas";
-    selectEl.appendChild(optAll);
-  } else {
-    const opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = "Selecione...";
-    selectEl.appendChild(opt0);
-  }
-
-  turmas.forEach(t => {
-    const opt = document.createElement("option");
-    opt.value = t;
-    opt.textContent = t;
-    selectEl.appendChild(opt);
-  });
-
-  // Se só tem uma turma permitida, já seleciona automaticamente
-  if (!incluirTodas && turmas.length === 1) selectEl.value = turmas[0];
-}
-
-async function carregarLista() {
-  const filtroTurma = $("filtroTurma").value; // "" = todas (mas dentro das permitidas)
-  const filtroSit = ($("filtroSituacao").value || "").trim().toLowerCase();
-  const busca = ($("busca").value || "").trim().toLowerCase();
-
-  setStatus("Carregando alunos...", "info");
-  $("lista").innerHTML = `<tr><td colspan="5" class="muted">Carregando...</td></tr>`;
-
-  try {
-    // Carregar alunos de turmas permitidas:
-    // Como Firestore tem limite pra "IN", a gente consulta por turma quando precisar.
-    // Se filtroTurma definido: 1 consulta.
-    // Se "todas": faz 1 consulta por turma permitida e concatena.
-    let results = [];
-
-    const turmasAlvo = filtroTurma ? [filtroTurma] : TURMAS_PERMITIDAS.slice();
-
-    for (const t of turmasAlvo) {
-      const qref = query(collection(db, "alunos"), where("turmaUpper", "==", t), orderBy("nome"));
-      const snap = await getDocs(qref);
-      snap.forEach(d => results.push({ id: d.id, ...(d.data() || {}) }));
-    }
-
-    // filtros locais
-    if (filtroSit) results = results.filter(a => normSituacao(a.situacao) === filtroSit);
-    if (busca) results = results.filter(a => (a.nome || "").toLowerCase().includes(busca));
-
-    ALUNOS = results;
-    renderTabela();
-
-    setStatus(`Alunos carregados ✅ (${ALUNOS.length})`, "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Erro ao carregar alunos: " + (e.code || e.message), "err");
-  }
-}
-
-function renderTabela() {
-  const tbody = $("lista");
-
-  if (!ALUNOS.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">Nenhum aluno encontrado.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = ALUNOS.map(a => {
-    const sit = normSituacao(a.situacao);
-
-    return `
-      <tr>
-        <td>${esc(a.nome || "")}</td>
-        <td>${esc(a.turmaUpper || a.turma || "")}</td>
-        <td>${esc(a.matricula || "")}</td>
-        <td>${esc(sit)}</td>
-        <td>
-          <select data-action="situacao" data-id="${esc(a.id)}" ${CAN_WRITE ? "" : "disabled"}>
-            <option value="ativo" ${sit==="ativo"?"selected":""}>Ativo</option>
-            <option value="desistente" ${sit==="desistente"?"selected":""}>Desistente</option>
-            <option value="evadido" ${sit==="evadido"?"selected":""}>Evadido</option>
-          </select>
-        </td>
-      </tr>
-    `;
-  }).join("");
+function turmaPermitida(t) {
+  const roles = Array.isArray(me?.roles) ? me.roles : [];
+  if (roles.includes("admin")) return true;
+  const tp = Array.isArray(me?.turmasPermitidas) ? me.turmasPermitidas : [];
+  return tp.includes(turmaUpper(t));
 }
 
 async function salvarAluno() {
-  if (!CAN_WRITE) {
-    setStatus("Seu perfil não pode cadastrar alunos.", "err");
+  if (!canManage()) {
+    setForm("Sem permissão (apenas DOT/Admin).", "err");
     return;
   }
 
-  const nome = ($("nome").value || "").trim();
-  const turma = ($("turma").value || "").trim(); // turmaUpper (permitida)
-  const matricula = ($("matricula").value || "").trim();
-  const situacao = normSituacao($("situacao").value);
+  const nome = (inNome.value||"").trim();
+  const turma = turmaUpper(inTurma.value);
+  const matricula = (inMatricula.value||"").trim();
 
   if (!nome || !turma) {
-    setStatus("Preencha NOME e TURMA.", "err");
+    setForm("Preencha Nome e Turma.", "err");
+    return;
+  }
+  if (!turmaPermitida(turma)) {
+    setForm(`Turma ${turma} não permitida para seu perfil.`, "err");
     return;
   }
 
-  if (!TURMAS_PERMITIDAS.includes(turma)) {
-    setStatus("Você não tem permissão para cadastrar nessa turma.", "err");
+  setForm("Salvando…", "info");
+
+  // ID do aluno: TURMA + "_" + (matricula se tiver) senão timestamp
+  const alunoId = matricula ? `${turma}_${matricula}` : `${turma}_${Date.now()}`;
+
+  const ref = fb.doc(db, "alunos", alunoId);
+  const u = auth.currentUser;
+
+  const payload = {
+    nome,
+    nomeLower: nomeLower(nome),
+    turma,
+    turmaUpper: turma,
+    matricula: matricula || "",
+    situacao: "ativo",
+    ativo: true,
+    atualizadoPor: u.uid,
+    atualizadoEm: fb.serverTimestamp()
+  };
+
+  // se não existir, cria com criadoEm
+  const snap = await fb.getDoc(ref);
+  if (!snap.exists()) {
+    payload.criadoPor = u.uid;
+    payload.criadoEm = fb.serverTimestamp();
+    await fb.setDoc(ref, payload);
+  } else {
+    await fb.updateDoc(ref, payload);
+  }
+
+  setForm("Aluno salvo com sucesso.", "ok");
+  inNome.value = "";
+  inMatricula.value = "";
+  await carregarAlunos();
+}
+
+async function marcarSituacao(alunoId, situacao) {
+  if (!canManage()) return alert("Sem permissão (apenas DOT/Admin).");
+
+  const ref = fb.doc(db, "alunos", alunoId);
+  const snap = await fb.getDoc(ref);
+  if (!snap.exists()) return;
+
+  const turma = snap.data().turmaUpper;
+  if (!turmaPermitida(turma)) return alert("Turma não permitida.");
+
+  const u = auth.currentUser;
+  await fb.updateDoc(ref, {
+    situacao,
+    ativo: (situacao === "ativo"),
+    atualizadoPor: u.uid,
+    atualizadoEm: fb.serverTimestamp()
+  });
+
+  await carregarAlunos();
+}
+
+async function excluirAluno(alunoId) {
+  if (!isAdmin()) return alert("Somente ADMIN pode excluir.");
+  if (!confirm("Excluir aluno? (ação irreversível)")) return;
+
+  const ref = fb.doc(db, "alunos", alunoId);
+  await fb.deleteDoc(ref);
+  await carregarAlunos();
+}
+
+function renderRows(docs) {
+  tbody.innerHTML = "";
+  if (!docs.length) {
+    tbody.innerHTML = `<tr><td colspan="5">Nenhum aluno encontrado.</td></tr>`;
     return;
   }
 
-  const alunoId = buildAlunoId({ turma, matricula, nome });
-  const ref = doc(db, "alunos", alunoId);
+  for (const d of docs) {
+    const a = d.data();
+    const id = d.id;
 
-  setStatus("Salvando (anti-duplicado)...", "info");
+    const tr = document.createElement("tr");
 
-  try {
-    const existente = await getDoc(ref);
-    if (existente.exists()) {
-      const ok = confirm("Esse aluno já existe nessa turma (matrícula/nome). Quer ATUALIZAR em vez de duplicar?");
-      if (!ok) {
-        setStatus("Cancelado para evitar duplicado.", "info");
+    tr.innerHTML = `
+      <td>${a.nome || ""}</td>
+      <td>${a.turmaUpper || a.turma || ""}</td>
+      <td>${a.matricula || ""}</td>
+      <td>${a.situacao || (a.ativo ? "ativo" : "inativo")}</td>
+      <td class="actions"></td>
+    `;
+
+    const tdActions = tr.querySelector(".actions");
+
+    const btnAtivo = document.createElement("button");
+    btnAtivo.className = "btn small";
+    btnAtivo.textContent = "Ativo";
+    btnAtivo.onclick = () => marcarSituacao(id, "ativo");
+
+    const btnEvadido = document.createElement("button");
+    btnEvadido.className = "btn small";
+    btnEvadido.textContent = "Evadido";
+    btnEvadido.onclick = () => marcarSituacao(id, "evadido");
+
+    const btnDesistente = document.createElement("button");
+    btnDesistente.className = "btn small";
+    btnDesistente.textContent = "Desistente";
+    btnDesistente.onclick = () => marcarSituacao(id, "desistente");
+
+    tdActions.appendChild(btnAtivo);
+    tdActions.appendChild(btnEvadido);
+    tdActions.appendChild(btnDesistente);
+
+    if (isAdmin()) {
+      const btnDel = document.createElement("button");
+      btnDel.className = "btn small danger";
+      btnDel.textContent = "Excluir";
+      btnDel.onclick = () => excluirAluno(id);
+      tdActions.appendChild(btnDel);
+    }
+
+    tbody.appendChild(tr);
+  }
+}
+
+async function carregarAlunos() {
+  if (!me) return;
+
+  setList("Carregando alunos…", "info");
+
+  const ft = turmaUpper(filtroTurma.value);
+  const bn = nomeLower(buscarNome.value);
+
+  let qRef = fb.collection(db, "alunos");
+  let q;
+
+  // Filtro por turma (se informado). Senão: só turmas permitidas do usuário
+  if (ft) {
+    if (!turmaPermitida(ft)) {
+      setList(`Turma ${ft} não permitida.`, "err");
+      renderRows([]);
+      return;
+    }
+    q = fb.query(qRef, fb.where("turmaUpper", "==", ft), fb.orderBy("nomeLower"), fb.limit(200));
+  } else {
+    // se não filtrar, limita nas turmas permitidas (se não for admin)
+    const roles = Array.isArray(me.roles) ? me.roles : [];
+    if (roles.includes("admin")) {
+      q = fb.query(qRef, fb.orderBy("nomeLower"), fb.limit(200));
+    } else {
+      const tp = Array.isArray(me.turmasPermitidas) ? me.turmasPermitidas : [];
+      if (!tp.length) {
+        setList("Sem turmas permitidas no seu perfil.", "err");
+        renderRows([]);
         return;
       }
+      // Firestore não aceita where IN com >10 valores. Aqui costuma ser 1-3. Se tiver muitas, ajustamos depois.
+      q = fb.query(qRef, fb.where("turmaUpper", "in", tp.slice(0, 10)), fb.orderBy("nomeLower"), fb.limit(200));
     }
-
-    await setDoc(ref, {
-      nome,
-      turmaUpper: turma,         // PADRÃO sem °/º (ex.: 2A)
-      turma: turma,              // pode manter igual para exibir
-      matricula: onlyDigits(matricula) || "",
-      situacao,
-
-      nomeLower: normalizeText(nome),
-
-      criadoPor: CURRENT_USER.uid,
-      criadoEm: existente.exists() ? (existente.data()?.criadoEm || serverTimestamp()) : serverTimestamp(),
-      atualizadoEm: serverTimestamp(),
-    }, { merge: true });
-
-    $("nome").value = "";
-    $("matricula").value = "";
-    $("situacao").value = "ativo";
-
-    setStatus(existente.exists() ? "Aluno atualizado ✅" : "Aluno cadastrado ✅", "ok");
-    await carregarLista();
-  } catch (e) {
-    console.error(e);
-    setStatus("Erro ao salvar aluno: " + (e.code || e.message), "err");
   }
+
+  const snap = await fb.getDocs(q);
+  let docs = snap.docs;
+
+  // busca por nome (cliente)
+  if (bn) {
+    docs = docs.filter(d => (d.data().nomeLower || "").includes(bn));
+  }
+
+  renderRows(docs);
+  setList(`OK — ${docs.length} aluno(s).`, "ok");
 }
 
-async function atualizarSituacao(alunoId, novaSit) {
-  if (!CAN_WRITE) return;
+btnSalvar?.addEventListener("click", salvarAluno);
+btnRecarregar?.addEventListener("click", carregarAlunos);
+buscarNome?.addEventListener("input", () => carregarAlunos());
 
-  const sit = normSituacao(novaSit);
-  setStatus("Atualizando situação...", "info");
-
-  try {
-    await updateDoc(doc(db, "alunos", alunoId), {
-      situacao: sit,
-      atualizadoEm: serverTimestamp(),
-      atualizadoPor: CURRENT_USER.uid,
-    });
-    setStatus("Situação atualizada ✅", "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Erro ao atualizar situação: " + (e.code || e.message), "err");
-  }
-}
-
-window.addEventListener("DOMContentLoaded", () => {
-  $("btnSair")?.addEventListener("click", async () => {
-    await signOut(auth);
-    location.href = "./index.html";
-  });
-
-  $("btnSalvar")?.addEventListener("click", salvarAluno);
-  $("btnRecarregar")?.addEventListener("click", carregarLista);
-
-  $("busca")?.addEventListener("input", () => {
-    // não recarrega do banco, só filtra local => rápido
-    renderTabela();
-  });
-
-  $("filtroSituacao")?.addEventListener("change", () => carregarLista());
-  $("filtroTurma")?.addEventListener("change", () => carregarLista());
-
-  $("lista")?.addEventListener("change", async (ev) => {
-    const el = ev.target;
-    if (!el) return;
-    const action = el.getAttribute("data-action");
-    const id = el.getAttribute("data-id");
-    if (action === "situacao" && id) {
-      await atualizarSituacao(id, el.value);
-    }
-  });
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      location.href = "./index.html";
-      return;
-    }
-
-    CURRENT_USER = user;
-
-    const userDoc = await getMyUserDoc(user.uid);
-    ROLES = userDoc.roles || [];
-    TURMAS_PERMITIDAS = (userDoc.turmasPermitidas || []).map(t => String(t).trim().toUpperCase());
-
-    CAN_WRITE = ROLES.includes("admin") || ROLES.includes("dot");
-
-    if (!TURMAS_PERMITIDAS.length) {
-      setStatus("Sem turmasPermitidas no seu usuário. Adicione em users/SEU_UID.", "err");
-      preencherSelectTurmas($("turma"), []);
-      preencherSelectTurmas($("filtroTurma"), [], true);
-      return;
-    }
-
-    preencherSelectTurmas($("turma"), TURMAS_PERMITIDAS, false);
-    preencherSelectTurmas($("filtroTurma"), TURMAS_PERMITIDAS, true);
-
-    setStatus("Pronto ✅", "ok");
-    await carregarLista();
-  });
+watchAuth(async (user) => {
+  if (!user) { window.location.href="./index.html"; return; }
+  me = await getMyProfile();
+  if (!me) { setList("Perfil não encontrado.", "err"); return; }
+  await carregarAlunos();
 });
