@@ -2,22 +2,17 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sistema DOT Moreira - Login</title>
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css" />
 </head>
-<body class="page-center">
-  <div class="card">
+<body>
+  <main class="card">
     <h1>Sistema DOT Moreira</h1>
-
-    <button id="btnLogin" class="btn primary">Entrar com Google</button>
-    <p id="status" class="msg info">Aguardando login...</p>
-
-    <p class="hint">
-      Se travar no tablet/celular: use Chrome e permita pop-ups.
-      (O sistema tenta popup e, se falhar, usa redirect.)
-    </p>
-  </div>
+    <button id="btnLogin" class="btn">Entrar com Google</button>
+    <p id="status" class="status">Aguardando login…</p>
+    <p class="hint">Se não abrir popup, o sistema usa redirect automaticamente.</p>
+  </main>
 
   <script type="module" src="./auth.js"></script>
 </body>
