@@ -1,29 +1,71 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sistema DOT Moreira - Login</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema DOT Moreira</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{background:#f3f5f7;font-family:Arial,Helvetica,sans-serif}
+    .box{max-width:520px;margin:80px auto;background:#fff;border-radius:14px;box-shadow:0 8px 26px rgba(0,0,0,.08);padding:26px;text-align:center}
+    h1{margin:6px 0 18px}
+    button{width:100%;padding:14px 12px;border:0;border-radius:10px;background:#d84a4a;color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+    button:hover{opacity:.95}
+    #msg{margin-top:12px;color:#0b6b2b;font-weight:700}
+    .muted{margin-top:10px;color:#666;font-size:13px;line-height:1.4}
+  </style>
 </head>
-<body class="bg">
-  <div class="card">
+<body>
+  <div class="box">
     <h1>Sistema DOT Moreira</h1>
 
-    <button id="btnGoogle" class="btn btn-google" onclick="loginGoogle()">
-      Entrar com Google
-    </button>
+    <button id="btnGoogle">Entrar com Google</button>
+    <div id="msg">Aguardando...</div>
 
-    <div id="status" class="status"> </div>
-
-    <p class="hint">
-      Se for seu primeiro acesso, o sistema cria seu usuário como <b>dot</b>.
-      Para virar <b>admin</b>, ajuste no Firestore: <code>users/{uid}</code>.
-    </p>
+    <div class="muted">
+      Se travar, verifique no Firebase Auth se o domínio
+      <b>adalbertobertulino-sketch.github.io</b> está em “Authorized domains”.
+    </div>
   </div>
 
-  <!-- Ordem importa -->
-  <script type="module" src="./firebase.js"></script>
-  <script type="module" src="./auth.js"></script>
+  <script type="module">
+    import { auth } from "./firebase.js";
+    import {
+      GoogleAuthProvider,
+      signInWithRedirect,
+      getRedirectResult,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+
+    const msg = (t)=> document.getElementById("msg").textContent = t;
+
+    const provider = new GoogleAuthProvider();
+
+    document.getElementById("btnGoogle").addEventListener("click", async ()=>{
+      msg("Redirecionando para login do Google...");
+      await signInWithRedirect(auth, provider);
+    });
+
+    // Quando volta do Google, pega o resultado
+    try {
+      msg("Verificando retorno do login...");
+      const result = await getRedirectResult(auth);
+      if (result?.user) {
+        msg("Login OK. Indo para o painel...");
+        window.location.href = "dashboard.html";
+      } else {
+        msg("Aguardando login...");
+      }
+    } catch (e) {
+      console.error(e);
+      msg("Erro no login: " + (e?.message || e));
+      alert("Erro no login: " + (e?.message || e));
+    }
+
+    // Se já estiver logado (sessão salva), entra direto
+    onAuthStateChanged(auth, (user)=>{
+      if (user) window.location.href = "dashboard.html";
+    });
+  </script>
 </body>
 </html>
