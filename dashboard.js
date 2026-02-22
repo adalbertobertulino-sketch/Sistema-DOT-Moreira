@@ -1,85 +1,58 @@
-// dashboard.js (APAGUE TUDO e COLE)
-
 import { auth, db } from "./firebase.js";
 import {
   onAuthStateChanged,
-  signOut
+  signOut,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 import {
   doc,
-  getDoc
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const $ = (id) => document.getElementById(id);
+function $(id) { return document.getElementById(id); }
 
-const msgEl = $("msg");
-function showMsg(text, type = "ok") {
-  msgEl.style.display = "block";
-  msgEl.className = "msg " + (type === "ok" ? "ok" : "err");
-  msgEl.textContent = text;
+function setStatus(msg, kind = "info") {
+  const el = $("status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = `msg ${kind}`;
+  console.log(msg);
 }
 
-function setText(id, text) {
-  const el = $(id);
-  if (el) el.textContent = text;
-}
-
-async function loadUserRoles(uid) {
-  // users/{uid} -> { roles: ["admin","dot"] } ou { role: "dot" }
-  const ref = doc(db, "users", uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) return ["dot"]; // fallback
-  const data = snap.data() || {};
-
-  if (Array.isArray(data.roles) && data.roles.length) return data.roles;
-  if (data.role) return [data.role];
-
-  return ["dot"];
-}
-
-async function sair() {
-  try {
+window.addEventListener("DOMContentLoaded", () => {
+  $("btnSair")?.addEventListener("click", async () => {
     await signOut(auth);
-    window.location.href = "./index.html";
-  } catch (e) {
-    console.error(e);
-    showMsg("Erro ao sair: " + (e?.message || e), "err");
-  }
-}
+    location.href = "./index.html";
+  });
 
-$("btnSair").addEventListener("click", sair);
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      location.href = "./index.html";
+      return;
+    }
 
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    // sem login -> volta pro index
-    window.location.href = "./index.html";
-    return;
-  }
+    try {
+      $("nome").textContent = user.displayName || "";
+      $("email").textContent = user.email || "";
+      $("uid").textContent = user.uid || "";
 
-  try {
-    setText("status", "Logado ✅ carregando perfil...");
+      const ref = doc(db, "users", user.uid);
+      const snap = await getDoc(ref);
 
-    setText("nome", user.displayName || "(sem nome)");
-    setText("email", user.email || "(sem email)");
-    setText("uid", user.uid);
+      if (!snap.exists()) {
+        setStatus("Perfil não encontrado em users/" + user.uid, "err");
+        $("roles").textContent = "N/A";
+        return;
+      }
 
-    const roles = await loadUserRoles(user.uid);
-    setText("roles", roles.join(", "));
-    $("perfilPill").textContent = "Perfil: " + roles.join(", ");
+      const data = snap.data() || {};
+      const roles = Array.isArray(data.roles) ? data.roles : [];
+      $("roles").textContent = roles.join(", ") || "sem roles";
 
-    setText("status", "Perfil carregado com sucesso ✅");
-
-    // (deixa os contadores como "—" por enquanto)
-    setText("countAlunos", "—");
-    setText("countTurmas", "—");
-    setText("countFreqHoje", "—");
-
-  } catch (e) {
-    console.error(e);
-    $("perfilPill").textContent = "Perfil: erro";
-    setText("status", "Erro ao carregar perfil.");
-    showMsg("Erro: " + (e?.message || e), "err");
-  }
+      setStatus("Perfil carregado com sucesso.", "ok");
+    } catch (e) {
+      console.error(e);
+      setStatus("Erro carregando perfil: " + (e.code || e.message), "err");
+    }
+  });
 });
