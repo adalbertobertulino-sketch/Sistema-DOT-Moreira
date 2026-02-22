@@ -1,70 +1,69 @@
 // auth.js
-import { auth, provider } from "./firebase.js";
+import { auth } from "./firebase.js";
 import {
+  GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+const btn = document.getElementById("btnLogin");
+const statusEl = document.getElementById("status");
 
 function setStatus(msg) {
-  const el = document.getElementById("status");
-  if (el) el.textContent = msg;
-  console.log("[STATUS]", msg);
+  if (statusEl) statusEl.textContent = msg;
 }
 
-// Tenta concluir login por redirect (se houver)
-getRedirectResult(auth)
-  .then((result) => {
+const provider = new GoogleAuthProvider();
+
+async function doPopup() {
+  setStatus("Abrindo pop-up...");
+  await signInWithPopup(auth, provider);
+}
+
+async function doRedirect() {
+  setStatus("Redirecionando...");
+  await signInWithRedirect(auth, provider);
+}
+
+async function handleRedirect() {
+  try {
+    const result = await getRedirectResult(auth);
     if (result && result.user) {
-      setStatus("Login concluído (redirect). Indo para o painel...");
-      window.location.href = "dashboard.html";
+      // chegou do redirect e já logou
+      window.location.href = "./dashboard.html";
     }
-  })
-  .catch((err) => {
-    console.error("Redirect error:", err);
-    setStatus("Erro no redirect: " + (err?.code || err?.message || err));
-  });
-
-// Se já está logado, envia para dashboard
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    setStatus("Logado como " + (user.email || user.uid) + ". Indo para o painel...");
-    window.location.href = "dashboard.html";
-  } else {
-    setStatus("Aguardando login...");
+  } catch (e) {
+    console.error(e);
+    setStatus("Erro no login: " + (e?.message || e));
   }
-});
+}
 
-// Botão de login
-const btn = document.getElementById("btnLogin");
-if (!btn) {
-  console.warn("Não achei #btnLogin no HTML.");
-} else {
+if (btn) {
   btn.addEventListener("click", async () => {
-    setStatus("Abrindo login do Google (popup)...");
+    setStatus("Aguardando login...");
     try {
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged redireciona
+      // tenta pop-up
+      await doPopup();
+      window.location.href = "./dashboard.html";
     } catch (e) {
-      console.error("Popup error:", e);
-
-      const code = e?.code || "";
-      if (
-        code === "auth/popup-blocked" ||
-        code === "auth/popup-closed-by-user" ||
-        code === "auth/cancelled-popup-request"
-      ) {
-        setStatus("Popup bloqueado/fechado. Tentando redirect...");
-        try {
-          await signInWithRedirect(auth, provider);
-        } catch (e2) {
-          console.error("Redirect start error:", e2);
-          setStatus("Erro ao iniciar redirect: " + (e2?.code || e2?.message || e2));
-        }
-      } else {
-        setStatus("Erro no login: " + (e?.code || e?.message || e));
+      console.warn("Popup falhou, tentando redirect", e);
+      try {
+        await doRedirect();
+      } catch (e2) {
+        console.error(e2);
+        setStatus("Erro no login: " + (e2?.message || e2));
       }
     }
   });
 }
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    setStatus("Logado. Indo para o painel...");
+    window.location.href = "./dashboard.html";
+  }
+});
+
+handleRedirect();
