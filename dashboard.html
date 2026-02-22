@@ -1,82 +1,106 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sistema DOT Moreira - Painel</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <title>Dashboard – Sistema DOT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
 
-  <script src="firebase.js"></script>
-  <script src="app.js"></script>
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    .admin {
+      color: green;
+      font-weight: bold;
+    }
+
+    .dot {
+      color: blue;
+      font-weight: bold;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px;
+      border: none;
+      background: #444;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+  </style>
 </head>
+
 <body>
-  <div id="topbar"></div>
+  <div class="box">
+    <h2>Bem-vindo(a)</h2>
 
-  <div class="container">
-    <div class="grid">
-      <div class="card">
-        <h2>Bem-vindo(a)</h2>
-        <div id="meBox" class="small">Carregando…</div>
-        <div class="row" style="margin-top:10px;">
-          <span class="badge" id="roleBadge">role</span>
-          <span class="badge green" id="uidBadge">uid</span>
-        </div>
-      </div>
+    <p><strong>Nome:</strong> <span id="nome">Carregando...</span></p>
+    <p><strong>Email:</strong> <span id="email">Carregando...</span></p>
+    <p><strong>Perfil:</strong> <span id="perfil">Carregando...</span></p>
 
-      <div class="card">
-        <h2>Resumo (tempo real)</h2>
-        <div class="small" id="stats">Carregando…</div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:14px;">
-      <h2>Avisos DOT</h2>
-      <div id="notices">Carregando…</div>
-    </div>
+    <button onclick="logout()">Sair</button>
   </div>
 
-  <script>
-    let state = { me: null, user: null };
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    (async function(){
-      renderTopbar("dashboard");
-      const { user, me } = await requireAuth();
-      state.me = me; state.user = user;
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMr2MIbnPw7k3W6WVmWwY-Pa3VgG0z1qk",
+      authDomain: "sistema-dot.firebaseapp.com",
+      projectId: "sistema-dot",
+      storageBucket: "sistema-dot.appspot.com",
+      messagingSenderId: "1003611331429",
+      appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
+    };
 
-      // aplica convite se houver
-      await applyInviteIfExists(me);
-      const me2 = (await db.collection("users").doc(user.uid).get()).data();
-      state.me = me2;
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-      $("#meBox").innerHTML = `
-        <b>Nome:</b> ${me2.name || "(sem nome)"}<br/>
-        <b>Email:</b> ${me2.email || "-"}<br/>
-      `;
-      $("#roleBadge").innerText = "Roles: " + (me2.roles || []).join(", ");
-      $("#uidBadge").innerText = "UID: " + me2.uid;
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
 
-      // Contadores em tempo real
-      db.collection("students").onSnapshot((snap)=>{
-        const total = snap.size;
-        $("#stats").innerHTML = `<b>Total de alunos:</b> ${total}`;
+      const ref = doc(db, "users", user.uid);
+      const snap = await getDoc(ref);
+
+      if (!snap.exists()) {
+        alert("Usuário sem perfil no sistema.");
+        return;
+      }
+
+      const data = snap.data();
+
+      document.getElementById("nome").innerText = data.name;
+      document.getElementById("email").innerText = data.email;
+
+      const role = data.roles.includes("admin") ? "ADMIN" : "DOT";
+      document.getElementById("perfil").innerHTML =
+        `<span class="${role === 'ADMIN' ? 'admin' : 'dot'}">${role}</span>`;
+    });
+
+    window.logout = () => {
+      signOut(auth).then(() => {
+        window.location.href = "index.html";
       });
-
-      db.collection("notices").orderBy("createdAt","desc").limit(10)
-        .onSnapshot((snap)=>{
-          const arr = snap.docs.map(d => d.data());
-          $("#notices").innerHTML = arr.length ? arr.map(n => `
-            <div style="padding:10px 0;border-bottom:1px solid #e5e7eb">
-              <b>${n.title}</b><br/>
-              <span class="small">${n.message}</span>
-            </div>
-          `).join("") : `<span class="small">Sem avisos.</span>`;
-        });
-    })();
+    };
   </script>
 </body>
 </html>
