@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import {
   getAuth,
   GoogleAuthProvider,
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   onAuthStateChanged
@@ -16,7 +17,7 @@ import {
 const statusEl = document.getElementById("status");
 const btn = document.getElementById("btnLogin");
 
-function setStatus(msg, kind="") {
+function setStatus(msg, kind = "") {
   statusEl.className = "msg " + (kind || "");
   statusEl.innerText = msg;
   console.log(msg);
@@ -32,49 +33,71 @@ const firebaseConfig = {
   appId: "1:1003611331429:web:2b55b32379b447e3059f8c"
 };
 
-setStatus("JS carregou. Inicializando Firebase…");
+setStatus("JS carregou. Inicializando Firebase…", "ok");
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// ✅ Clique do botão (debug forte)
-btn.addEventListener("click", async () => {
-  alert("Clique detectado ✅ Vou tentar abrir o login do Google agora.");
-  setStatus("Clique detectado ✅ Abrindo login do Google…", "ok");
-
-  try {
-    await signInWithRedirect(auth, provider);
-  } catch (e) {
-    console.error(e);
-    alert("Erro no login: " + (e?.code || e?.message || e));
-    setStatus("Erro ao iniciar login: " + (e?.code || e?.message || e), "err");
-  }
-});
+// (opcional) força seletor de conta sempre aparecer
+provider.setCustomParameters({ prompt: "select_account" });
 
 // ✅ Trata retorno do redirect (quando voltar do Google)
 getRedirectResult(auth)
   .then((res) => {
     if (res?.user) {
-      setStatus("Voltou do Google ✅ Usuário: " + res.user.email, "ok");
+      setStatus("Voltou do Google ✅ " + res.user.email, "ok");
     } else {
-      setStatus("Aguardando: se você acabou de voltar do Google, o onAuthStateChanged vai detectar.", "");
+      setStatus("Pronto. Clique em 'Entrar com Google'.", "");
     }
   })
   .catch((e) => {
-    // Aqui costuma cair o "auth/unauthorized-domain"
     console.error(e);
-    setStatus("ERRO no retorno do Google: " + (e?.code || e?.message || e), "err");
     alert("ERRO Firebase (redirect): " + (e?.code || e?.message || e));
+    setStatus("ERRO no redirect: " + (e?.code || e?.message || e), "err");
   });
+
+// ✅ Clique do botão
+btn.addEventListener("click", async () => {
+  alert("Clique detectado ✅ Vou abrir o login do Google.");
+
+  setStatus("Tentando login com POPUP…", "ok");
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    setStatus("Login OK ✅ " + result.user.email, "ok");
+  } catch (e) {
+    console.error(e);
+
+    // Se popup foi bloqueado ou não permitido, cai no redirect
+    const popupBlocked =
+      e?.code === "auth/popup-blocked" ||
+      e?.code === "auth/popup-closed-by-user" ||
+      e?.code === "auth/cancelled-popup-request";
+
+    if (popupBlocked) {
+      alert("Popup bloqueado. Vou tentar login por REDIRECT agora.");
+      setStatus("Popup bloqueado. Tentando REDIRECT…", "ok");
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch (e2) {
+        console.error(e2);
+        alert("Erro no redirect: " + (e2?.code || e2?.message || e2));
+        setStatus("Erro no redirect: " + (e2?.code || e2?.message || e2), "err");
+      }
+      return;
+    }
+
+    // Qualquer outro erro (inclui unauthorized-domain)
+    alert("Erro no login: " + (e?.code || e?.message || e));
+    setStatus("Erro no login: " + (e?.code || e?.message || e), "err");
+  }
+});
 
 // ✅ Detecta login e cria usuário se não existir
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    console.log("Sem usuário logado ainda.");
-    return;
-  }
+  if (!user) return;
 
   setStatus("Logado ✅ " + user.email + " — checando Firestore…", "ok");
 
