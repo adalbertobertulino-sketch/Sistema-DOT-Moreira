@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Cadastro de Alunos - Sistema DOT</title>
+  <title>Alunos — Sistema DOT Moreira</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -25,7 +25,7 @@
 
     <section class="card">
       <h1>Cadastro de Alunos</h1>
-      <p class="muted">Perfis <b>DOT</b> e <b>admin</b> podem cadastrar e alterar situação.</p>
+      <p class="muted">Somente turmas permitidas do seu usuário aparecem aqui.</p>
 
       <div id="status" class="msg info">Carregando...</div>
 
@@ -37,7 +37,10 @@
 
         <div>
           <label>Turma (obrigatório)</label>
-          <input id="turma" type="text" placeholder="Ex.: 1A" />
+          <select id="turma"></select>
+          <div class="muted" style="margin-top:6px;">
+            Se a turma não aparece, adicione em <b>users/SEU_UID/turmasPermitidas</b>.
+          </div>
         </div>
 
         <div>
@@ -66,7 +69,7 @@
       <div class="grid">
         <div>
           <label>Filtrar por turma</label>
-          <input id="filtroTurma" type="text" placeholder="Ex.: 1A" />
+          <select id="filtroTurma"></select>
         </div>
 
         <div>
@@ -79,7 +82,12 @@
           </select>
         </div>
 
-        <div class="actions">
+        <div>
+          <label>Buscar (nome)</label>
+          <input id="busca" type="text" placeholder="Digite parte do nome..." />
+        </div>
+
+        <div class="actions" style="justify-content:flex-start;">
           <button id="btnRecarregar" class="btn">Recarregar</button>
         </div>
       </div>
@@ -92,7 +100,7 @@
               <th>Turma</th>
               <th>Matrícula</th>
               <th>Situação</th>
-              <th>Ações</th>
+              <th>Alterar situação</th>
             </tr>
           </thead>
           <tbody id="lista">
@@ -104,7 +112,6 @@
 
   </main>
 
-  <script type="module" src="./firebase.js"></script>
   <script type="module" src="./alunos.js"></script>
 </body>
 </html>
