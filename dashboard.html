@@ -1,57 +1,27 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Dashboard – Sistema DOT</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 20px;
-    }
-
-    .box {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 600px;
-      margin: auto;
-    }
-
-    .admin {
-      color: green;
-      font-weight: bold;
-    }
-
-    .dot {
-      color: blue;
-      font-weight: bold;
-    }
-
-    button {
-      margin-top: 15px;
-      padding: 10px;
-      border: none;
-      background: #444;
-      color: white;
-      cursor: pointer;
-      border-radius: 5px;
-    }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:20px; }
+    .box { background:#fff; padding:20px; border-radius:10px; max-width:720px; margin:auto; box-shadow:0 4px 10px rgba(0,0,0,.08); }
+    .admin { color: green; font-weight: bold; }
+    .dot { color: #1d4ed8; font-weight: bold; }
+    .muted { color:#666; font-size:13px; }
+    button { margin-top:15px; padding:10px 14px; border:0; border-radius:6px; background:#444; color:#fff; cursor:pointer; }
+    button:hover { opacity:.9; }
   </style>
 </head>
-
 <body>
   <div class="box">
     <h2>Bem-vindo(a)</h2>
-
     <p><strong>Nome:</strong> <span id="nome">Carregando...</span></p>
     <p><strong>Email:</strong> <span id="email">Carregando...</span></p>
     <p><strong>Perfil:</strong> <span id="perfil">Carregando...</span></p>
-
-    <button onclick="logout()">Sair</button>
+    <p class="muted"><strong>UID:</strong> <span id="uid">...</span></p>
+    <button id="btnSair">Sair</button>
   </div>
 
   <script type="module">
@@ -72,35 +42,38 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    document.getElementById("btnSair").onclick = async () => {
+      await signOut(auth);
+      window.location.href = "index.html";
+    };
+
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         window.location.href = "index.html";
         return;
       }
 
+      document.getElementById("uid").innerText = user.uid;
+
       const ref = doc(db, "users", user.uid);
       const snap = await getDoc(ref);
 
       if (!snap.exists()) {
-        alert("Usuário sem perfil no sistema.");
+        document.getElementById("nome").innerText = "(sem cadastro no Firestore)";
+        document.getElementById("email").innerText = user.email || "";
+        document.getElementById("perfil").innerText = "Sem perfil";
         return;
       }
 
       const data = snap.data();
+      document.getElementById("nome").innerText = data.name || "(sem nome)";
+      document.getElementById("email").innerText = data.email || "(sem email)";
 
-      document.getElementById("nome").innerText = data.name;
-      document.getElementById("email").innerText = data.email;
-
-      const role = data.roles.includes("admin") ? "ADMIN" : "DOT";
+      const roles = Array.isArray(data.roles) ? data.roles : [];
+      const isAdmin = roles.includes("admin");
       document.getElementById("perfil").innerHTML =
-        `<span class="${role === 'ADMIN' ? 'admin' : 'dot'}">${role}</span>`;
+        isAdmin ? `<span class="admin">ADMIN</span>` : `<span class="dot">DOT</span>`;
     });
-
-    window.logout = () => {
-      signOut(auth).then(() => {
-        window.location.href = "index.html";
-      });
-    };
   </script>
 </body>
 </html>
