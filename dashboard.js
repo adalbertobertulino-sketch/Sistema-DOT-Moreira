@@ -1,92 +1,85 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Dashboard – Sistema DOT</title>
+// dashboard.js (APAGUE TUDO e COLE)
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+import { auth, db } from "./firebase.js";
+import {
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f6fa;
-      margin: 0;
-      padding: 0;
-    }
+import {
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    header {
-      background: #2f3640;
-      color: white;
-      padding: 15px;
-      text-align: center;
-      font-size: 20px;
-    }
+const $ = (id) => document.getElementById(id);
 
-    .container {
-      max-width: 800px;
-      margin: 30px auto;
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
+const msgEl = $("msg");
+function showMsg(text, type = "ok") {
+  msgEl.style.display = "block";
+  msgEl.className = "msg " + (type === "ok" ? "ok" : "err");
+  msgEl.textContent = text;
+}
 
-    h2 {
-      margin-top: 0;
-    }
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
 
-    p {
-      font-size: 16px;
-      margin: 8px 0;
-    }
+async function loadUserRoles(uid) {
+  // users/{uid} -> { roles: ["admin","dot"] } ou { role: "dot" }
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
 
-    strong {
-      color: #333;
-    }
+  if (!snap.exists()) return ["dot"]; // fallback
+  const data = snap.data() || {};
 
-    .btn {
-      margin-top: 20px;
-      padding: 10px 16px;
-      background: #c0392b;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
-    }
+  if (Array.isArray(data.roles) && data.roles.length) return data.roles;
+  if (data.role) return [data.role];
 
-    .btn:hover {
-      background: #e74c3c;
-    }
+  return ["dot"];
+}
 
-    .status {
-      margin-top: 10px;
-      color: #555;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
+async function sair() {
+  try {
+    await signOut(auth);
+    window.location.href = "./index.html";
+  } catch (e) {
+    console.error(e);
+    showMsg("Erro ao sair: " + (e?.message || e), "err");
+  }
+}
 
-<header>
-  Sistema DOT Moreira – Dashboard
-</header>
+$("btnSair").addEventListener("click", sair);
 
-<div class="container">
-  <h2>Bem-vindo(a)</h2>
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    // sem login -> volta pro index
+    window.location.href = "./index.html";
+    return;
+  }
 
-  <p><strong>Nome:</strong> <span id="nome">Carregando...</span></p>
-  <p><strong>Email:</strong> <span id="email">Carregando...</span></p>
-  <p><strong>UID:</strong> <span id="uid">Carregando...</span></p>
-  <p><strong>Perfis:</strong> <span id="roles">Carregando...</span></p>
+  try {
+    setText("status", "Logado ✅ carregando perfil...");
 
-  <button id="btnSair" class="btn">Sair</button>
+    setText("nome", user.displayName || "(sem nome)");
+    setText("email", user.email || "(sem email)");
+    setText("uid", user.uid);
 
-  <div class="status" id="status"></div>
-</div>
+    const roles = await loadUserRoles(user.uid);
+    setText("roles", roles.join(", "));
+    $("perfilPill").textContent = "Perfil: " + roles.join(", ");
 
-<!-- JS -->
-<script type="module" src="./dashboard.js"></script>
+    setText("status", "Perfil carregado com sucesso ✅");
 
-</body>
-</html>
+    // (deixa os contadores como "—" por enquanto)
+    setText("countAlunos", "—");
+    setText("countTurmas", "—");
+    setText("countFreqHoje", "—");
+
+  } catch (e) {
+    console.error(e);
+    $("perfilPill").textContent = "Perfil: erro";
+    setText("status", "Erro ao carregar perfil.");
+    showMsg("Erro: " + (e?.message || e), "err");
+  }
+});
