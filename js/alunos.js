@@ -14,14 +14,20 @@ const btnCadastrar = document.getElementById("btnCadastrar");
 const inpTurmaFiltro = document.getElementById("inpTurmaFiltro");
 const btnCarregar = document.getElementById("btnCarregar");
 const tbodyAlunos = document.getElementById("tbodyAlunos");
-
 const alunosStatus = document.getElementById("alunosStatus");
 
-let cacheDocs = []; // lista carregada
+// migração em lote
+const migTurmaDe = document.getElementById("migTurmaDe");
+const migTurmaPara = document.getElementById("migTurmaPara");
+const btnMigrar = document.getElementById("btnMigrar");
+const migStatus = document.getElementById("migStatus");
 
-function setStatus(msg, kind = "") {
-  alunosStatus.textContent = msg || "";
-  alunosStatus.className = "status " + (kind || "");
+let cacheDocs = [];
+
+function setStatus(el, msg, kind = "") {
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "status " + (kind || "");
 }
 
 function normTurma(t) {
@@ -48,11 +54,11 @@ async function cadastrarAluno() {
   const matricula = (inpMatricula.value || "").trim();
   const situacao = selSituacao.value || "ativo";
 
-  if (!nome) { setStatus("Informe o nome.", "warn"); return; }
-  if (!turma) { setStatus("Informe a turma (ex.: 2A).", "warn"); return; }
+  if (!nome) { setStatus(alunosStatus, "Informe o nome.", "warn"); return; }
+  if (!turma) { setStatus(alunosStatus, "Informe a turma (ex.: 2A).", "warn"); return; }
 
   try {
-    setStatus("Cadastrando...", "warn");
+    setStatus(alunosStatus, "Cadastrando...", "warn");
 
     const ref = fb.doc(fb.collection(db, "alunos"));
     await fb.setDoc(ref, {
@@ -67,12 +73,12 @@ async function cadastrarAluno() {
       criadoEm: fb.serverTimestamp()
     });
 
-    setStatus("Aluno cadastrado com sucesso!", "ok");
+    setStatus(alunosStatus, "Aluno cadastrado!", "ok");
     inpNome.value = "";
     inpMatricula.value = "";
   } catch (e) {
     console.error(e);
-    setStatus("Erro ao cadastrar: " + (e?.code || e?.message || e), "bad");
+    setStatus(alunosStatus, "Erro ao cadastrar: " + (e?.code || e?.message || e), "bad");
   }
 }
 
@@ -94,21 +100,20 @@ async function carregarAlunos() {
 
     if (snap.empty) {
       tbodyAlunos.innerHTML = `<tr><td colspan="5" class="muted">Nenhum aluno encontrado.</td></tr>`;
-      setStatus("Nenhum aluno na turma " + turma, "warn");
+      setStatus(alunosStatus, "Nenhum aluno na turma " + turma, "warn");
       return;
     }
 
     snap.forEach((d) => cacheDocs.push({ id: d.id, ...d.data() }));
 
-    // Ordena no JS (sem índice)
     cacheDocs.sort((a, b) => (a.nomeLower || "").localeCompare(b.nomeLower || ""));
 
     renderTabela();
-    setStatus(`Carregado(s) ${cacheDocs.length} aluno(s).`, "ok");
+    setStatus(alunosStatus, `Carregado(s) ${cacheDocs.length} aluno(s).`, "ok");
   } catch (e) {
     console.error(e);
     tbodyAlunos.innerHTML = `<tr><td colspan="5" class="muted">Erro: ${escapeHtml(e?.code || e?.message || String(e))}</td></tr>`;
-    setStatus("Erro ao carregar: " + (e?.code || e?.message || e), "bad");
+    setStatus(alunosStatus, "Erro ao carregar: " + (e?.code || e?.message || e), "bad");
   }
 }
 
@@ -133,7 +138,6 @@ function renderTabela() {
     `;
   }).join("");
 
-  // eventos
   tbodyAlunos.querySelectorAll("tr").forEach(tr => {
     const id = tr.getAttribute("data-id");
     tr.querySelector(".btn-del").addEventListener("click", () => excluirAluno(id));
@@ -148,20 +152,19 @@ async function excluirAluno(id) {
     await fb.deleteDoc(fb.doc(db, "alunos", id));
     cacheDocs = cacheDocs.filter(x => x.id !== id);
     renderTabela();
-    setStatus("Aluno excluído.", "ok");
+    setStatus(alunosStatus, "Aluno excluído.", "ok");
   } catch (e) {
     console.error(e);
-    setStatus("Erro ao excluir: " + (e?.code || e?.message || e), "bad");
+    setStatus(alunosStatus, "Erro ao excluir: " + (e?.code || e?.message || e), "bad");
   }
 }
 
-// ===== EDITAR =====
+// ===== EDITAR (UM ALUNO) =====
 function entrarModoEdicao(id) {
   const tr = tbodyAlunos.querySelector(`tr[data-id="${id}"]`);
   const aluno = cacheDocs.find(x => x.id === id);
   if (!tr || !aluno) return;
 
-  // substitui células por inputs
   tr.querySelector(".cell-nome").innerHTML =
     `<input class="input" id="edNome_${id}" value="${escapeHtml(aluno.nome || "")}">`;
 
@@ -178,9 +181,7 @@ function entrarModoEdicao(id) {
       <option value="evadido">evadido</option>
     </select>
   `;
-
-  const sel = tr.querySelector(`#edSit_${id}`);
-  sel.value = aluno.situacao || "ativo";
+  tr.querySelector(`#edSit_${id}`).value = aluno.situacao || "ativo";
 
   tr.querySelector(".cell-acoes").innerHTML = `
     <button class="btn btn-save">Salvar</button>
@@ -188,29 +189,23 @@ function entrarModoEdicao(id) {
   `;
 
   tr.querySelector(".btn-save").addEventListener("click", () => salvarEdicao(id));
-  tr.querySelector(".btn-cancel").addEventListener("click", () => cancelarEdicao());
-}
-
-function cancelarEdicao() {
-  // apenas re-renderiza a tabela inteira
-  renderTabela();
+  tr.querySelector(".btn-cancel").addEventListener("click", () => renderTabela());
 }
 
 async function salvarEdicao(id) {
-  const tr = tbodyAlunos.querySelector(`tr[data-id="${id}"]`);
   const aluno = cacheDocs.find(x => x.id === id);
-  if (!tr || !aluno) return;
+  if (!aluno) return;
 
   const nome = (document.getElementById(`edNome_${id}`)?.value || "").trim();
   const turma = normTurma(document.getElementById(`edTurma_${id}`)?.value || "");
   const matricula = (document.getElementById(`edMat_${id}`)?.value || "").trim();
   const situacao = (document.getElementById(`edSit_${id}`)?.value || "ativo");
 
-  if (!nome) { setStatus("Nome não pode ficar vazio.", "warn"); return; }
-  if (!turma) { setStatus("Turma não pode ficar vazia.", "warn"); return; }
+  if (!nome) { setStatus(alunosStatus, "Nome não pode ficar vazio.", "warn"); return; }
+  if (!turma) { setStatus(alunosStatus, "Turma não pode ficar vazia.", "warn"); return; }
 
   try {
-    setStatus("Salvando alterações...", "warn");
+    setStatus(alunosStatus, "Salvando alterações...", "warn");
 
     await fb.updateDoc(fb.doc(db, "alunos", id), {
       nome,
@@ -224,7 +219,6 @@ async function salvarEdicao(id) {
       atualizadoEm: fb.serverTimestamp()
     });
 
-    // atualiza cache local
     aluno.nome = nome;
     aluno.nomeLower = normLower(nome);
     aluno.turma = turma;
@@ -233,17 +227,81 @@ async function salvarEdicao(id) {
     aluno.situacao = situacao;
     aluno.ativo = situacao === "ativo";
 
-    // reordena
     cacheDocs.sort((a, b) => (a.nomeLower || "").localeCompare(b.nomeLower || ""));
-
     renderTabela();
-    setStatus("Alterações salvas!", "ok");
+
+    setStatus(alunosStatus, "Alterações salvas!", "ok");
   } catch (e) {
     console.error(e);
-    setStatus("Erro ao salvar: " + (e?.code || e?.message || e), "bad");
+    setStatus(alunosStatus, "Erro ao salvar: " + (e?.code || e?.message || e), "bad");
+  }
+}
+
+// ===== MIGRAR TURMA (LOTE) =====
+async function migrarTurmaLote() {
+  const de = normTurma(migTurmaDe.value);
+  const para = normTurma(migTurmaPara.value);
+
+  if (!de) { setStatus(migStatus, "Informe a turma atual.", "warn"); return; }
+  if (!para) { setStatus(migStatus, "Informe a nova turma.", "warn"); return; }
+  if (de === para) { setStatus(migStatus, "As turmas são iguais.", "warn"); return; }
+
+  const ok = confirm(`Confirmar migração: ${de} → ${para} ?\n\nIsso altera TODOS os alunos dessa turma.`);
+  if (!ok) return;
+
+  try {
+    setStatus(migStatus, "Buscando alunos da turma " + de + "...", "warn");
+
+    // pega todos os alunos da turma "de"
+    const ref = fb.collection(db, "alunos");
+    const q = fb.query(ref, fb.where("turmaUpper", "==", de));
+    const snap = await fb.getDocs(q);
+
+    if (snap.empty) {
+      setStatus(migStatus, "Não encontrei alunos em " + de, "warn");
+      return;
+    }
+
+    // batch com limite 450 por segurança
+    const docs = [];
+    snap.forEach(d => docs.push(d));
+
+    let atualizados = 0;
+    let batch = fb.writeBatch(db);
+    let count = 0;
+
+    for (const d of docs) {
+      batch.update(d.ref, {
+        turma: para,
+        turmaUpper: para,
+        atualizadoPor: auth.currentUser.uid,
+        atualizadoEm: fb.serverTimestamp()
+      });
+      count++;
+      atualizados++;
+
+      if (count >= 450) {
+        await batch.commit();
+        batch = fb.writeBatch(db);
+        count = 0;
+      }
+    }
+    if (count > 0) await batch.commit();
+
+    setStatus(migStatus, `Migração concluída! ${atualizados} aluno(s) movidos para ${para}.`, "ok");
+
+    // se o usuário estiver vendo a turma "de", recarrega.
+    if (normTurma(inpTurmaFiltro.value) === de) {
+      inpTurmaFiltro.value = para;
+      await carregarAlunos();
+    }
+  } catch (e) {
+    console.error(e);
+    setStatus(migStatus, "Erro na migração: " + (e?.code || e?.message || e), "bad");
   }
 }
 
 // eventos
 btnCadastrar.addEventListener("click", cadastrarAluno);
 btnCarregar.addEventListener("click", carregarAlunos);
+btnMigrar.addEventListener("click", migrarTurmaLote);
