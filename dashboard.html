@@ -1,19 +1,57 @@
-<!-- dentro do seu card/caixa -->
-<h2>Bem-vindo(a)</h2>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard - Sistema DOT Moreira</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body class="page">
 
-<div class="grid-info">
-  <div><b>Nome:</b> <span id="nomeUser">Carregando...</span></div>
-  <div><b>UID:</b> <span id="uidUser">Carregando...</span></div>
-  <div><b>Email:</b> <span id="emailUser">Carregando...</span></div>
-  <div><b>Perfis:</b> <span id="perfisUser">Carregando...</span></div>
-  <div><b>Turmas permitidas:</b> <span id="turmasPermitidas">Carregando...</span></div>
-</div>
+  <header class="topbar">
+    <div>
+      <div class="brand">Sistema DOT Moreira</div>
+      <div class="muted small">Painel</div>
+    </div>
 
-<p id="perfilStatus" class="msg">Carregando...</p>
+    <div class="topbar-actions">
+      <a class="btn secondary" href="./alunos.html">Cadastro de Alunos</a>
+      <a class="btn secondary" href="./frequencia.html">Frequência</a>
+      <button id="btnSair" class="btn danger">Sair</button>
+    </div>
+  </header>
 
-<div class="actions">
-  <button class="btn" id="btnIrFrequencia">Ir para Frequência</button>
-  <button class="btn danger" id="btnSair">Sair</button>
-</div>
+  <main class="container">
+    <section class="card">
+      <h2 class="subtitle">Seu perfil</h2>
 
-<script type="module" src="./js/dashboard.js"></script>
+      <div class="grid">
+        <div>
+          <div class="label">Nome</div>
+          <div id="nomeUser">Carregando...</div>
+        </div>
+        <div>
+          <div class="label">E-mail</div>
+          <div id="emailUser">Carregando...</div>
+        </div>
+        <div>
+          <div class="label">UID</div>
+          <div id="uidUser">Carregando...</div>
+        </div>
+        <div>
+          <div class="label">Roles</div>
+          <div id="rolesUser">Carregando...</div>
+        </div>
+        <div>
+          <div class="label">Turmas permitidas</div>
+          <div id="turmasUser">Carregando...</div>
+        </div>
+      </div>
+
+      <p id="dashStatus" class="status">Carregando perfil...</p>
+    </section>
+  </main>
+
+  <script type="module" src="./js/dashboard.js"></script>
+</body>
+</html>
