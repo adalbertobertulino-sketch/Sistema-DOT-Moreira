@@ -1,55 +1,19 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dashboard - Sistema DOT</title>
-  <link rel="stylesheet" href="./css/style.css">
-</head>
-<body class="page">
+<!-- dentro do seu card/caixa -->
+<h2>Bem-vindo(a)</h2>
 
-  <div class="topbar">
-    <div>
-      <div class="brand">Sistema DOT Moreira</div>
-      <div class="muted small">Dashboard</div>
-    </div>
+<div class="grid-info">
+  <div><b>Nome:</b> <span id="nomeUser">Carregando...</span></div>
+  <div><b>UID:</b> <span id="uidUser">Carregando...</span></div>
+  <div><b>Email:</b> <span id="emailUser">Carregando...</span></div>
+  <div><b>Perfis:</b> <span id="perfisUser">Carregando...</span></div>
+  <div><b>Turmas permitidas:</b> <span id="turmasPermitidas">Carregando...</span></div>
+</div>
 
-    <div class="topbar-actions">
-      <a class="btn secondary" href="./frequencia.html">Ir para Frequência</a>
-      <button id="btnLogout" class="btn danger">Sair</button>
-    </div>
-  </div>
+<p id="perfilStatus" class="msg">Carregando...</p>
 
-  <div class="card">
-    <h2 class="subtitle">Bem-vindo(a)</h2>
+<div class="actions">
+  <button class="btn" id="btnIrFrequencia">Ir para Frequência</button>
+  <button class="btn danger" id="btnSair">Sair</button>
+</div>
 
-    <div class="grid">
-      <div>
-        <div class="label">Nome:</div>
-        <div id="nome">Carregando...</div>
-      </div>
-      <div>
-        <div class="label">Email:</div>
-        <div id="email">Carregando...</div>
-      </div>
-      <div>
-        <div class="label">UID:</div>
-        <div id="uid">Carregando...</div>
-      </div>
-      <div>
-        <div class="label">Perfis:</div>
-        <div id="perfis">Carregando...</div>
-      </div>
-      <div>
-        <div class="label">Turmas permitidas:</div>
-        <div id="turmas">Carregando...</div>
-      </div>
-    </div>
-
-    <p id="statusDash" class="status"></p>
-  </div>
-
-  <script type="module" src="./js/firebase.js"></script>
-  <script type="module" src="./js/dashboard.js"></script>
-</body>
-</html>
+<script type="module" src="./js/dashboard.js"></script>
