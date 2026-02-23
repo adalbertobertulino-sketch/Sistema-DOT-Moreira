@@ -1,56 +1,65 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Frequência - Sistema DOT</title>
-  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
-<body class="page">
+<body>
 
-  <div class="topbar">
-    <div>
-      <div class="brand">Sistema DOT Moreira</div>
-      <div class="muted small">Lançamento / Edição de Frequência</div>
-    </div>
+  <header class="topbar">
+    <div class="brand">Sistema DOT Moreira</div>
 
-    <div class="topbar-actions">
-      <a class="btn secondary" href="./dashboard.html">Voltar ao Dashboard</a>
-      <button id="btnLogout" class="btn danger">Sair</button>
-    </div>
-  </div>
+    <nav class="topnav">
+      <a class="btn" href="./dashboard.html">Voltar ao Dashboard</a>
+      <a class="btn danger" href="#" id="btnSair">Sair</a>
+    </nav>
+  </header>
 
-  <div class="card">
-    <div class="row">
-      <div class="field">
-        <label class="label">Turma</label>
-        <select id="turmaSelect" class="input"></select>
+  <main class="container">
+    <h2>Lançamento / Edição de Frequência</h2>
+
+    <section class="card">
+      <div class="row">
+        <div class="col">
+          <label>Turma</label>
+          <select id="selTurma">
+            <option value="2A">2A</option>
+          </select>
+        </div>
+
+        <div class="col">
+          <label>Data</label>
+          <input id="inpData" type="date" />
+        </div>
+
+        <div class="col">
+          <label>&nbsp;</label>
+          <button class="btn" id="btnCarregar">Carregar alunos</button>
+        </div>
+
+        <div class="col">
+          <label>&nbsp;</label>
+          <button class="btn primary" id="btnSalvarTudo">Salvar tudo</button>
+        </div>
       </div>
 
-      <div class="field">
-        <label class="label">Data</label>
-        <input id="dataInput" type="date" class="input"/>
+      <div class="row">
+        <div class="col">
+          <label><input type="checkbox" id="chkSomenteAtivos" checked /> Somente ativos</label>
+        </div>
+        <div class="col">
+          <label>Buscar (nome)</label>
+          <input id="inpBusca" type="text" placeholder="Digite parte do nome" />
+        </div>
       </div>
 
-      <div class="field">
-        <label class="label">Somente ativos</label>
-        <input id="somenteAtivos" type="checkbox" checked />
-      </div>
+      <p id="msg" class="msg">Pronto.</p>
+    </section>
 
-      <div class="field grow">
-        <label class="label">Buscar (nome)</label>
-        <input id="buscarInput" type="text" class="input" placeholder="Digite parte do nome"/>
-      </div>
-    </div>
-
-    <div class="row">
-      <button id="btnCarregar" class="btn secondary">Carregar alunos</button>
-      <button id="btnSalvar" class="btn">Salvar tudo</button>
-      <span id="statusFreq" class="status"></span>
-    </div>
-
-    <div class="table-wrap">
-      <table class="table">
+    <section class="card">
+      <table class="table" id="tbl">
         <thead>
           <tr>
             <th>Aluno</th>
@@ -63,14 +72,13 @@
             <th>Justificativa</th>
           </tr>
         </thead>
-        <tbody id="listaAlunos">
-          <tr><td colspan="8" class="muted">Selecione a turma e clique em “Carregar alunos”.</td></tr>
+        <tbody id="tbody">
+          <!-- Linhas entram via JS -->
         </tbody>
       </table>
-    </div>
-  </div>
+    </section>
+  </main>
 
-  <script type="module" src="./js/firebase.js"></script>
   <script type="module" src="./js/frequencia.js"></script>
 </body>
 </html>
