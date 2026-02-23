@@ -13,9 +13,9 @@ const inpBusca = document.getElementById("inpBusca");
 const tbodyFreq = document.getElementById("tbodyFreq");
 const freqStatus = document.getElementById("freqStatus");
 
-let alunos = []; // alunos carregados (docs)
+let alunos = [];
 
-function setStatus(msg, kind="") {
+function setStatus(msg, kind = "") {
   freqStatus.textContent = msg || "";
   freqStatus.className = "status " + (kind || "");
 }
@@ -23,12 +23,15 @@ function setStatus(msg, kind="") {
 function hoje() {
   const d = new Date();
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function normTurma(t){ return (t||"").trim().toUpperCase(); }
+function normTurma(t) {
+  return (t || "").trim().toUpperCase();
+}
+
 function escapeHtml(str) {
   return String(str ?? "")
     .replaceAll("&", "&amp;")
@@ -45,14 +48,8 @@ async function carregarTurmasPermitidas() {
 
   selTurma.innerHTML = "";
 
-  if (!turmas.length) {
-    // fallback: permite digitar manualmente depois (mas aqui uso 2A como padrão)
-    const opt = document.createElement("option");
-    opt.value = "2A";
-    opt.textContent = "2A";
-    selTurma.appendChild(opt);
-    return;
-  }
+  // fallback
+  if (!turmas.length) turmas = ["2A"];
 
   turmas.forEach(t => {
     const tu = normTurma(t);
@@ -72,18 +69,21 @@ async function carregarAlunos() {
   alunos = [];
 
   try {
-    // Busca por turmaUpper e ordena por nomeLower
+    // IMPORTANTE: sem orderBy para não exigir índice
     const ref = fb.collection(db, "alunos");
-    const q = fb.query(ref, fb.where("turmaUpper", "==", turma), fb.orderBy("nomeLower"));
+    const q = fb.query(ref, fb.where("turmaUpper", "==", turma));
     const snap = await fb.getDocs(q);
 
     if (snap.empty) {
-      tbodyFreq.innerHTML = `<tr><td colspan="6" class="muted">Nenhum aluno encontrado em "alunos" para turma ${escapeHtml(turma)}. Verifique se os docs têm turmaUpper e nomeLower.</td></tr>`;
+      tbodyFreq.innerHTML = `<tr><td colspan="6" class="muted">Nenhum aluno encontrado na coleção "alunos" para turma ${escapeHtml(turma)}.</td></tr>`;
       setStatus("Nenhum aluno encontrado.", "warn");
       return;
     }
 
     snap.forEach(d => alunos.push({ id: d.id, ...d.data() }));
+
+    // Ordena no JS
+    alunos.sort((a, b) => (a.nomeLower || "").localeCompare(b.nomeLower || ""));
 
     setStatus(`Alunos carregados: ${alunos.length}`, "ok");
     renderTabela();
@@ -96,7 +96,9 @@ async function carregarAlunos() {
 
 function renderTabela() {
   const termo = (inpBusca.value || "").trim().toLowerCase();
-  const lista = termo ? alunos.filter(a => (a.nomeLower || (a.nome||"").toLowerCase()).includes(termo)) : alunos;
+  const lista = termo
+    ? alunos.filter(a => (a.nomeLower || (a.nome || "").toLowerCase()).includes(termo))
+    : alunos;
 
   if (!lista.length) {
     tbodyFreq.innerHTML = `<tr><td colspan="6" class="muted">Nenhum aluno corresponde à busca.</td></tr>`;
@@ -136,7 +138,6 @@ async function salvarTudo() {
       const justificada = document.getElementById(`jus_${aid}`)?.checked ?? false;
       const justificativa = (document.getElementById(`justxt_${aid}`)?.value ?? "").trim();
 
-      // docId único por aluno+data (com matrícula se existir)
       const mat = String(a.matricula || aid).trim();
       const docId = `${turma}_${mat}_${data}`;
 
@@ -163,6 +164,7 @@ async function salvarTudo() {
   }
 }
 
+// eventos
 btnCarregar.addEventListener("click", carregarAlunos);
 btnSalvar.addEventListener("click", salvarTudo);
 inpBusca.addEventListener("input", renderTabela);
