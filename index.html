@@ -4,22 +4,32 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sistema DOT Moreira - Login</title>
-  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
-<body>
+<body class="page">
+
+  <header class="topbar">
+    <div class="brand">Sistema DOT Moreira</div>
+    <div class="muted small">Login</div>
+  </header>
+
   <main class="container">
-    <section class="card login-card">
-      <h1>Sistema DOT Moreira</h1>
-      <p>Entre com sua conta Google institucional.</p>
+    <section class="card">
+      <h1 class="title">Acesso do DOT / Gestão</h1>
+      <p class="muted">
+        Entre com sua conta Google (preferencialmente institucional).
+      </p>
 
-      <button class="btn primary" id="btnLogin">Entrar com Google</button>
+      <button id="btnGoogle" class="btn primary">Entrar com Google</button>
 
-      <p id="status" class="msg">Pronto para entrar.</p>
+      <p id="status" class="status">Aguardando login...</p>
     </section>
   </main>
 
-  <!-- IMPORTANTE: type="module" e caminho correto -->
-  <script type="module" src="./js/index.js"></script>
+  <script type="module">
+    import { bindGoogleLogin } from "./js/auth.js";
+    bindGoogleLogin("btnGoogle", "status", "dashboard.html");
+  </script>
+
 </body>
 </html>
-
