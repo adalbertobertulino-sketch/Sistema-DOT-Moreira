@@ -1,62 +1,79 @@
-// js/dashboard.js
-import { auth, db } from "./firebase.js";
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { auth } from "./firebase.js";
+import { db } from "./firestore.js";
 
-import {
-  doc,
-  getDoc
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+function $(id) { return document.getElementById(id); }
 
 function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value ?? "";
-}
-function setStatus(msg, kind="") {
-  const el = document.getElementById("statusDash");
-  if (!el) return;
-  el.textContent = msg || "";
-  el.className = "status " + kind;
+  const el = $(id);
+  if (el) el.textContent = value;
 }
 
-async function carregarPerfil(uid, email, displayName) {
-  // Busca o doc do usuário em: users/{uid}
+async function carregarPerfil(uid) {
+  // Ajuste aqui se sua coleção de usuários tiver outro nome:
   const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
 
-  // Valores padrão (caso não exista doc)
-  let roles = ["prof"];
-  let turmasPermitidas = [];
-
-  if (snap.exists()) {
-    const data = snap.data();
-    roles = Array.isArray(data.roles) ? data.roles : (data.role ? [data.role] : roles);
-    turmasPermitidas = Array.isArray(data.turmasPermitidas) ? data.turmasPermitidas : [];
+  if (!snap.exists()) {
+    setText("perfilStatus", "Perfil não encontrado no Firestore (coleção users).");
+    return;
   }
 
-  setText("nome", displayName || "Sem nome");
-  setText("email", email || "Sem email");
-  setText("uid", uid);
-  setText("perfis", roles.join(", "));
-  setText("turmas", turmasPermitidas.length ? turmasPermitidas.join(", ") : "(vazio)");
+  const data = snap.data();
 
-  // Guardar turmas permitidas para usar na página de frequência
-  localStorage.setItem("turmasPermitidas", JSON.stringify(turmasPermitidas));
+  setText("nomeUser", data.nome || data.name || "(sem nome)");
+  setText("uidUser", uid);
+  setText("emailUser", data.email || auth.currentUser?.email || "(sem email)");
 
-  setStatus("Perfil carregado.", "ok");
+  // turmas permitidas pode ser array ou string
+  const turmas = Array.isArray(data.turmasPermitidas) ? data.turmasPermitidas.join(", ") : (data.turmasPermitidas || data.turma || "-");
+  setText("turmasPermitidas", turmas);
+
+  const perfis = Array.isArray(data.perfis) ? data.perfis.join(", ") : (data.perfis || data.perfil || "-");
+  setText("perfisUser", perfis);
+
+  setText("perfilStatus", "Perfil carregado.");
 }
+
+function ligarBotoes() {
+  const btnSair = $("btnSair");
+  if (btnSair) {
+    btnSair.addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        window.location.href = "index.html";
+      } catch (e) {
+        console.error(e);
+        alert("Falha ao sair: " + (e.code || e.message));
+      }
+    });
+  }
+
+  const btnFreq = $("btnIrFrequencia");
+  if (btnFreq) {
+    btnFreq.addEventListener("click", () => {
+      window.location.href = "frequencia.html";
+    });
+  }
+}
+
+ligarBotoes();
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = "./index.html";
+    window.location.href = "index.html";
     return;
   }
+
+  setText("perfilStatus", "Carregando...");
+  setText("uidUser", user.uid);
+  setText("emailUser", user.email || "(sem email)");
+
   try {
-    setStatus("Carregando perfil...", "warn");
-    await carregarPerfil(user.uid, user.email, user.displayName);
+    await carregarPerfil(user.uid);
   } catch (e) {
     console.error(e);
-    setStatus("Falha ao carregar perfil: " + (e?.message || e), "bad");
+    setText("perfilStatus", "Erro ao carregar perfil: " + (e.code || e.message));
   }
 });
