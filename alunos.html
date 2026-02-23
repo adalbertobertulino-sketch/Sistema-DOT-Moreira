@@ -3,82 +3,118 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Cadastro de Alunos - Sistema DOT</title>
+  <title>Alunos - Sistema DOT</title>
   <link rel="stylesheet" href="./css/style.css" />
 </head>
-<body class="page">
 
+<body class="app-body">
   <header class="topbar">
-    <div>
-      <div class="brand">Sistema DOT Moreira</div>
-      <div class="muted small">Cadastro de Alunos</div>
+    <div class="brand">
+      <div class="brand-title">Sistema DOT Moreira</div>
+      <div class="brand-sub">Alunos</div>
     </div>
 
-    <div class="topbar-actions">
-      <a class="btn secondary" href="./dashboard.html">Voltar</a>
-      <button id="btnSair" class="btn danger">Sair</button>
-    </div>
+    <nav class="topnav">
+      <a class="navlink" href="./dashboard.html">Dashboard</a>
+      <a class="navlink active" href="./alunos.html">Alunos</a>
+      <a class="navlink" href="./frequencia.html">Frequência</a>
+      <button class="btn danger" id="btnSair">Sair</button>
+    </nav>
   </header>
 
   <main class="container">
     <section class="card">
-      <h2 class="subtitle">Adicionar aluno</h2>
+      <h2>Cadastrar aluno</h2>
 
-      <div class="row">
-        <div class="field grow">
-          <div class="label">Nome completo</div>
-          <input id="inpNome" class="input" type="text" placeholder="Ex: Allysson Matheus da Silva Venceslau">
+      <div class="grid">
+        <div>
+          <label>Nome</label>
+          <input class="input" id="inpNome" placeholder="Nome completo" />
         </div>
 
-        <div class="field">
-          <div class="label">Turma (ex: 2A)</div>
-          <input id="inpTurma" class="input" type="text" placeholder="2A">
+        <div>
+          <label>Turma</label>
+          <input class="input" id="inpTurma" placeholder="Ex.: 2A" />
         </div>
 
-        <div class="field">
-          <div class="label">Matrícula (opcional)</div>
-          <input id="inpMatricula" class="input" type="text" placeholder="3899204">
+        <div>
+          <label>Matrícula (opcional)</label>
+          <input class="input" id="inpMatricula" placeholder="Ex.: 3899204" />
         </div>
 
-        <div class="field">
-          <div class="label">&nbsp;</div>
-          <button id="btnAdd" class="btn primary">Cadastrar</button>
+        <div>
+          <label>Situação</label>
+          <select class="input" id="selSituacao">
+            <option value="ativo">ativo</option>
+            <option value="desistente">desistente</option>
+            <option value="evadido">evadido</option>
+          </select>
         </div>
       </div>
 
-      <p id="alunosStatus" class="status">Pronto.</p>
+      <div class="row">
+        <button class="btn" id="btnCadastrar">Cadastrar</button>
+        <div id="alunosStatus" class="status"></div>
+      </div>
     </section>
 
     <section class="card">
-      <h2 class="subtitle">Lista da turma</h2>
+      <h2>Lista da turma</h2>
+
+      <div class="grid">
+        <div>
+          <label>Turma para carregar</label>
+          <input class="input" id="inpTurmaFiltro" placeholder="Ex.: 2A" />
+        </div>
+
+        <div class="row" style="align-items:flex-end;">
+          <button class="btn secondary" id="btnCarregar">Carregar</button>
+        </div>
+      </div>
+
+      <hr class="sep" />
+
+      <h3>Migrar turma (em lote)</h3>
+      <p class="muted">
+        Use isto quando você mudou de turma (ex.: todos os alunos de 2A vão para 2B).
+      </p>
+
+      <div class="grid">
+        <div>
+          <label>Turma atual</label>
+          <input class="input" id="migTurmaDe" placeholder="Ex.: 2A" />
+        </div>
+
+        <div>
+          <label>Nova turma</label>
+          <input class="input" id="migTurmaPara" placeholder="Ex.: 2B" />
+        </div>
+
+        <div class="row" style="align-items:flex-end;">
+          <button class="btn" id="btnMigrar">Migrar turma</button>
+        </div>
+      </div>
 
       <div class="row">
-        <div class="field">
-          <div class="label">Turma</div>
-          <input id="filtroTurma" class="input" type="text" placeholder="2A">
-        </div>
-        <div class="field">
-          <div class="label">&nbsp;</div>
-          <button id="btnCarregar" class="btn secondary">Carregar</button>
-        </div>
+        <div id="migStatus" class="status"></div>
       </div>
 
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Turma</th>
-              <th>Matrícula</th>
-              <th>Ativo</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyAlunos">
-            <tr><td colspan="5" class="muted">Informe a turma e clique em Carregar.</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <hr class="sep" />
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Aluno</th>
+            <th>Turma</th>
+            <th>Matrícula</th>
+            <th>Situação</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyAlunos">
+          <tr><td colspan="5" class="muted">Carregue uma turma para ver a lista.</td></tr>
+        </tbody>
+      </table>
     </section>
   </main>
 
