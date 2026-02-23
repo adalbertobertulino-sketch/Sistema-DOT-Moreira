@@ -1,49 +1,41 @@
-/* ===== Ajuste de contraste / legibilidade ===== */
-body {
-  background: #0b1220 !important;
-  color: #e9eefc !important;
+/* ===== CONTRASTE MELHORADO ===== */
+:root{
+  --bg: #0b1020;
+  --card: rgba(255,255,255,0.08);
+  --text: #f3f6ff;
+  --muted: rgba(243,246,255,0.70);
+  --border: rgba(255,255,255,0.16);
+  --btn: rgba(255,255,255,0.14);
+  --btn2: rgba(255,255,255,0.10);
+  --danger: rgba(255,80,80,0.22);
 }
 
-.card, .login-card, .painel, .container .box, .grid-info {
-  background: rgba(255,255,255,0.08) !important;
-  border: 1px solid rgba(255,255,255,0.14) !important;
-  color: #e9eefc !important;
+body.page{
+  background: var(--bg);
+  color: var(--text);
 }
 
-.grid-info b { color: #ffffff !important; }
-.grid-info span { color: #e9eefc !important; }
-
-table, th, td {
-  color: #e9eefc !important;
+.card{
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
-th {
-  background: rgba(255,255,255,0.10) !important;
+.muted{ color: var(--muted); }
+
+.table th, .table td { color: var(--text); }
+.table th{ background: rgba(255,255,255,0.10); }
+.table td{ background: rgba(255,255,255,0.05); }
+
+.input, select{
+  background: rgba(0,0,0,0.25);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
-td {
-  background: rgba(255,255,255,0.05) !important;
+.btn{
+  background: var(--btn);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
-
-input, select {
-  background: rgba(0,0,0,0.35) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255,255,255,0.18) !important;
-}
-
-input::placeholder { color: rgba(233,238,252,0.6) !important; }
-
-.btn {
-  background: rgba(255,255,255,0.12) !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255,255,255,0.20) !important;
-}
-
-.btn:hover { filter: brightness(1.1); }
-
-.btn.danger {
-  background: rgba(255,80,80,0.18) !important;
-  border-color: rgba(255,80,80,0.35) !important;
-}
-
-.msg { color: #b9c6ff !important; }
+.btn.secondary{ background: var(--btn2); }
+.btn.danger{ background: var(--danger); border-color: rgba(255,80,80,0.40); }
