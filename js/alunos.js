@@ -1,238 +1,130 @@
-// alunos.js (COMPLETO)
-import { auth, watchAuth, db, fb, getMyProfile, logout } from "./firebase.js";
+// /js/alunos.js
+import { requireAuth, bindLogout } from "./auth.js";
+import { auth, db, fb } from "./firebase.js";
 
-const btnSair = document.getElementById("btnSair");
-btnSair?.addEventListener("click", async () => { await logout(); window.location.href="./index.html"; });
+requireAuth("index.html");
+bindLogout("btnSair", "index.html");
 
-const inNome = document.getElementById("inNome");
-const inTurma = document.getElementById("inTurma");
-const inMatricula = document.getElementById("inMatricula");
-const btnSalvar = document.getElementById("btnSalvar");
-const statusForm = document.getElementById("statusForm");
+const inpNome = document.getElementById("inpNome");
+const inpTurma = document.getElementById("inpTurma");
+const inpMatricula = document.getElementById("inpMatricula");
+const selSituacao = document.getElementById("selSituacao");
+const btnCadastrar = document.getElementById("btnCadastrar");
 
-const filtroTurma = document.getElementById("filtroTurma");
-const buscarNome = document.getElementById("buscarNome");
-const btnRecarregar = document.getElementById("btnRecarregar");
-const tbody = document.getElementById("tbodyAlunos");
-const statusLista = document.getElementById("statusLista");
+const inpTurmaFiltro = document.getElementById("inpTurmaFiltro");
+const btnCarregar = document.getElementById("btnCarregar");
+const tbodyAlunos = document.getElementById("tbodyAlunos");
 
-let me = null;
+const alunosStatus = document.getElementById("alunosStatus");
 
-function setForm(msg, kind="info"){ statusForm.textContent = msg; statusForm.className = `status ${kind}`; }
-function setList(msg, kind="info"){ statusLista.textContent = msg; statusLista.className = `status ${kind}`; }
-
-function turmaUpper(v){ return (v||"").trim().toUpperCase(); }
-function nomeLower(v){ return (v||"").trim().toLowerCase(); }
-
-function canManage() {
-  const roles = Array.isArray(me?.roles) ? me.roles : [];
-  return roles.includes("admin") || roles.includes("dot");
-}
-function isAdmin() {
-  const roles = Array.isArray(me?.roles) ? me.roles : [];
-  return roles.includes("admin");
-}
-function turmaPermitida(t) {
-  const roles = Array.isArray(me?.roles) ? me.roles : [];
-  if (roles.includes("admin")) return true;
-  const tp = Array.isArray(me?.turmasPermitidas) ? me.turmasPermitidas : [];
-  return tp.includes(turmaUpper(t));
+function setStatus(msg, kind="") {
+  alunosStatus.textContent = msg || "";
+  alunosStatus.className = "status " + (kind || "");
 }
 
-async function salvarAluno() {
-  if (!canManage()) {
-    setForm("Sem permissão (apenas DOT/Admin).", "err");
-    return;
-  }
-
-  const nome = (inNome.value||"").trim();
-  const turma = turmaUpper(inTurma.value);
-  const matricula = (inMatricula.value||"").trim();
-
-  if (!nome || !turma) {
-    setForm("Preencha Nome e Turma.", "err");
-    return;
-  }
-  if (!turmaPermitida(turma)) {
-    setForm(`Turma ${turma} não permitida para seu perfil.`, "err");
-    return;
-  }
-
-  setForm("Salvando…", "info");
-
-  // ID do aluno: TURMA + "_" + (matricula se tiver) senão timestamp
-  const alunoId = matricula ? `${turma}_${matricula}` : `${turma}_${Date.now()}`;
-
-  const ref = fb.doc(db, "alunos", alunoId);
-  const u = auth.currentUser;
-
-  const payload = {
-    nome,
-    nomeLower: nomeLower(nome),
-    turma,
-    turmaUpper: turma,
-    matricula: matricula || "",
-    situacao: "ativo",
-    ativo: true,
-    atualizadoPor: u.uid,
-    atualizadoEm: fb.serverTimestamp()
-  };
-
-  // se não existir, cria com criadoEm
-  const snap = await fb.getDoc(ref);
-  if (!snap.exists()) {
-    payload.criadoPor = u.uid;
-    payload.criadoEm = fb.serverTimestamp();
-    await fb.setDoc(ref, payload);
-  } else {
-    await fb.updateDoc(ref, payload);
-  }
-
-  setForm("Aluno salvo com sucesso.", "ok");
-  inNome.value = "";
-  inMatricula.value = "";
-  await carregarAlunos();
+function normTurma(t) {
+  return (t || "").trim().toUpperCase();
 }
 
-async function marcarSituacao(alunoId, situacao) {
-  if (!canManage()) return alert("Sem permissão (apenas DOT/Admin).");
-
-  const ref = fb.doc(db, "alunos", alunoId);
-  const snap = await fb.getDoc(ref);
-  if (!snap.exists()) return;
-
-  const turma = snap.data().turmaUpper;
-  if (!turmaPermitida(turma)) return alert("Turma não permitida.");
-
-  const u = auth.currentUser;
-  await fb.updateDoc(ref, {
-    situacao,
-    ativo: (situacao === "ativo"),
-    atualizadoPor: u.uid,
-    atualizadoEm: fb.serverTimestamp()
-  });
-
-  await carregarAlunos();
+function normLower(s) {
+  return (s || "").trim().toLowerCase();
 }
 
-async function excluirAluno(alunoId) {
-  if (!isAdmin()) return alert("Somente ADMIN pode excluir.");
-  if (!confirm("Excluir aluno? (ação irreversível)")) return;
+async function cadastrarAluno() {
+  const nome = (inpNome.value || "").trim();
+  const turma = normTurma(inpTurma.value);
+  const matricula = (inpMatricula.value || "").trim();
+  const situacao = selSituacao.value || "ativo";
 
-  const ref = fb.doc(db, "alunos", alunoId);
-  await fb.deleteDoc(ref);
-  await carregarAlunos();
-}
+  if (!nome) { setStatus("Informe o nome.", "warn"); return; }
+  if (!turma) { setStatus("Informe a turma (ex.: 2A).", "warn"); return; }
 
-function renderRows(docs) {
-  tbody.innerHTML = "";
-  if (!docs.length) {
-    tbody.innerHTML = `<tr><td colspan="5">Nenhum aluno encontrado.</td></tr>`;
-    return;
-  }
+  try {
+    setStatus("Cadastrando...", "warn");
 
-  for (const d of docs) {
-    const a = d.data();
-    const id = d.id;
+    const ref = fb.doc(fb.collection(db, "alunos")); // ID automático
+    await fb.setDoc(ref, {
+      nome,
+      nomeLower: normLower(nome),
+      turma,
+      turmaUpper: turma,
+      matricula: matricula || "",
+      situacao,
+      ativo: situacao === "ativo",
+      criadoPor: auth.currentUser.uid,
+      criadoEm: fb.serverTimestamp()
+    });
 
-    const tr = document.createElement("tr");
+    setStatus("Aluno cadastrado com sucesso!", "ok");
+    inpNome.value = "";
+    inpMatricula.value = "";
+    // mantém turma para facilitar
 
-    tr.innerHTML = `
-      <td>${a.nome || ""}</td>
-      <td>${a.turmaUpper || a.turma || ""}</td>
-      <td>${a.matricula || ""}</td>
-      <td>${a.situacao || (a.ativo ? "ativo" : "inativo")}</td>
-      <td class="actions"></td>
-    `;
-
-    const tdActions = tr.querySelector(".actions");
-
-    const btnAtivo = document.createElement("button");
-    btnAtivo.className = "btn small";
-    btnAtivo.textContent = "Ativo";
-    btnAtivo.onclick = () => marcarSituacao(id, "ativo");
-
-    const btnEvadido = document.createElement("button");
-    btnEvadido.className = "btn small";
-    btnEvadido.textContent = "Evadido";
-    btnEvadido.onclick = () => marcarSituacao(id, "evadido");
-
-    const btnDesistente = document.createElement("button");
-    btnDesistente.className = "btn small";
-    btnDesistente.textContent = "Desistente";
-    btnDesistente.onclick = () => marcarSituacao(id, "desistente");
-
-    tdActions.appendChild(btnAtivo);
-    tdActions.appendChild(btnEvadido);
-    tdActions.appendChild(btnDesistente);
-
-    if (isAdmin()) {
-      const btnDel = document.createElement("button");
-      btnDel.className = "btn small danger";
-      btnDel.textContent = "Excluir";
-      btnDel.onclick = () => excluirAluno(id);
-      tdActions.appendChild(btnDel);
-    }
-
-    tbody.appendChild(tr);
+  } catch (e) {
+    console.error(e);
+    setStatus("Erro ao cadastrar: " + (e?.code || e?.message || e), "bad");
   }
 }
 
 async function carregarAlunos() {
-  if (!me) return;
+  const turma = normTurma(inpTurmaFiltro.value);
+  if (!turma) {
+    tbodyAlunos.innerHTML = `<tr><td colspan="5" class="muted">Informe a turma.</td></tr>`;
+    return;
+  }
 
-  setList("Carregando alunos…", "info");
+  tbodyAlunos.innerHTML = `<tr><td colspan="5" class="muted">Carregando...</td></tr>`;
 
-  const ft = turmaUpper(filtroTurma.value);
-  const bn = nomeLower(buscarNome.value);
+  try {
+    const ref = fb.collection(db, "alunos");
+    const q = fb.query(ref, fb.where("turmaUpper", "==", turma), fb.orderBy("nomeLower"));
+    const snap = await fb.getDocs(q);
 
-  let qRef = fb.collection(db, "alunos");
-  let q;
-
-  // Filtro por turma (se informado). Senão: só turmas permitidas do usuário
-  if (ft) {
-    if (!turmaPermitida(ft)) {
-      setList(`Turma ${ft} não permitida.`, "err");
-      renderRows([]);
+    if (snap.empty) {
+      tbodyAlunos.innerHTML = `<tr><td colspan="5" class="muted">Nenhum aluno encontrado.</td></tr>`;
       return;
     }
-    q = fb.query(qRef, fb.where("turmaUpper", "==", ft), fb.orderBy("nomeLower"), fb.limit(200));
-  } else {
-    // se não filtrar, limita nas turmas permitidas (se não for admin)
-    const roles = Array.isArray(me.roles) ? me.roles : [];
-    if (roles.includes("admin")) {
-      q = fb.query(qRef, fb.orderBy("nomeLower"), fb.limit(200));
-    } else {
-      const tp = Array.isArray(me.turmasPermitidas) ? me.turmasPermitidas : [];
-      if (!tp.length) {
-        setList("Sem turmas permitidas no seu perfil.", "err");
-        renderRows([]);
-        return;
-      }
-      // Firestore não aceita where IN com >10 valores. Aqui costuma ser 1-3. Se tiver muitas, ajustamos depois.
-      q = fb.query(qRef, fb.where("turmaUpper", "in", tp.slice(0, 10)), fb.orderBy("nomeLower"), fb.limit(200));
-    }
+
+    tbodyAlunos.innerHTML = "";
+    snap.forEach((d) => {
+      const a = d.data();
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(a.nome || "")}</td>
+        <td>${escapeHtml(a.turmaUpper || a.turma || "")}</td>
+        <td>${escapeHtml(String(a.matricula || ""))}</td>
+        <td>${escapeHtml(a.situacao || "")}</td>
+        <td>
+          <button class="btn secondary" data-del="${d.id}">Excluir</button>
+        </td>
+      `;
+      tbodyAlunos.appendChild(tr);
+    });
+
+    // eventos excluir
+    tbodyAlunos.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-del");
+        if (!confirm("Excluir este aluno?")) return;
+        await fb.deleteDoc(fb.doc(db, "alunos", id));
+        await carregarAlunos();
+      });
+    });
+
+  } catch (e) {
+    console.error(e);
+    tbodyAlunos.innerHTML = `<tr><td colspan="5" class="muted">Erro: ${escapeHtml(e?.code || e?.message || String(e))}</td></tr>`;
   }
-
-  const snap = await fb.getDocs(q);
-  let docs = snap.docs;
-
-  // busca por nome (cliente)
-  if (bn) {
-    docs = docs.filter(d => (d.data().nomeLower || "").includes(bn));
-  }
-
-  renderRows(docs);
-  setList(`OK — ${docs.length} aluno(s).`, "ok");
 }
 
-btnSalvar?.addEventListener("click", salvarAluno);
-btnRecarregar?.addEventListener("click", carregarAlunos);
-buscarNome?.addEventListener("input", () => carregarAlunos());
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-watchAuth(async (user) => {
-  if (!user) { window.location.href="./index.html"; return; }
-  me = await getMyProfile();
-  if (!me) { setList("Perfil não encontrado.", "err"); return; }
-  await carregarAlunos();
-});
+btnCadastrar.addEventListener("click", cadastrarAluno);
+btnCarregar.addEventListener("click", carregarAlunos);
