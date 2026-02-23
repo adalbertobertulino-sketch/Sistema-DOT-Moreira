@@ -1,73 +1,87 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Alunos — Sistema DOT</title>
-  <link rel="stylesheet" href="./styles.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cadastro de Alunos - Sistema DOT</title>
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
-<body>
+<body class="page">
+
   <header class="topbar">
-    <strong>Sistema DOT Moreira</strong>
-    <nav class="menu">
-      <a href="./dashboard.html">Painel</a>
-      <a href="./alunos.html" class="active">Alunos</a>
-      <a href="./frequencia.html">Frequência</a>
-      <button id="btnSair" class="btn small">Sair</button>
-    </nav>
+    <div>
+      <div class="brand">Sistema DOT Moreira</div>
+      <div class="muted small">Cadastro de Alunos</div>
+    </div>
+
+    <div class="topbar-actions">
+      <a class="btn secondary" href="./dashboard.html">Voltar</a>
+      <button id="btnSair" class="btn danger">Sair</button>
+    </div>
   </header>
 
-  <main class="container two">
+  <main class="container">
     <section class="card">
-      <h2>Cadastro de Alunos</h2>
-      <p class="hint">Somente DOT e admin podem cadastrar/alterar. Admin pode excluir.</p>
-
-      <label>Nome completo (obrigatório)
-        <input id="inNome" type="text" placeholder="Nome do aluno" />
-      </label>
-
-      <label>Turma (obrigatório)
-        <input id="inTurma" type="text" placeholder="Ex: 2A" />
-      </label>
-
-      <label>Matrícula (opcional)
-        <input id="inMatricula" type="text" placeholder="Opcional" />
-      </label>
-
-      <button id="btnSalvar" class="btn">Salvar aluno</button>
-      <p id="statusForm" class="status info">Pronto.</p>
-    </section>
-
-    <section class="card wide">
-      <h2>Lista de alunos</h2>
+      <h2 class="subtitle">Adicionar aluno</h2>
 
       <div class="row">
-        <input id="filtroTurma" type="text" placeholder="Filtrar por turma (ex: 2A)" />
-        <input id="buscarNome" type="text" placeholder="Buscar (nome)" />
-        <button id="btnRecarregar" class="btn small">Recarregar</button>
+        <div class="field grow">
+          <div class="label">Nome completo</div>
+          <input id="inpNome" class="input" type="text" placeholder="Ex: Allysson Matheus da Silva Venceslau">
+        </div>
+
+        <div class="field">
+          <div class="label">Turma (ex: 2A)</div>
+          <input id="inpTurma" class="input" type="text" placeholder="2A">
+        </div>
+
+        <div class="field">
+          <div class="label">Matrícula (opcional)</div>
+          <input id="inpMatricula" class="input" type="text" placeholder="3899204">
+        </div>
+
+        <div class="field">
+          <div class="label">&nbsp;</div>
+          <button id="btnAdd" class="btn primary">Cadastrar</button>
+        </div>
       </div>
 
-      <div class="tablewrap">
-        <table>
+      <p id="alunosStatus" class="status">Pronto.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="subtitle">Lista da turma</h2>
+
+      <div class="row">
+        <div class="field">
+          <div class="label">Turma</div>
+          <input id="filtroTurma" class="input" type="text" placeholder="2A">
+        </div>
+        <div class="field">
+          <div class="label">&nbsp;</div>
+          <button id="btnCarregar" class="btn secondary">Carregar</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
           <thead>
             <tr>
               <th>Nome</th>
               <th>Turma</th>
               <th>Matrícula</th>
-              <th>Situação</th>
+              <th>Ativo</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tbodyAlunos">
-            <tr><td colspan="5">Carregando…</td></tr>
+            <tr><td colspan="5" class="muted">Informe a turma e clique em Carregar.</td></tr>
           </tbody>
         </table>
       </div>
-
-      <p id="statusLista" class="status info">Carregando alunos…</p>
     </section>
   </main>
 
-  <script type="module" src="./alunos.js"></script>
+  <script type="module" src="./js/alunos.js"></script>
 </body>
 </html>
