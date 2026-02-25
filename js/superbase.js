@@ -1,10 +1,6 @@
-// js/supabase.js
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-// 1) Cole AQUI sua URL do Supabase (Settings > API > Project URL)
-const SUPABASE_URL = "COLE_SUA_SUPABASE_URL_AQUI";
-
-// 2) Cole AQUI sua anon public key (Settings > API > anon public)
-const SUPABASE_ANON_KEY = "COLE_SUA_ANON_KEY_AQUI";
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(
+  "https://ylgjxbhdekmswsspypwc.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ2p4YmhkZWttc3dzc3B5cHdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NzQ2NDcsImV4cCI6MjA4NzU1MDY0N30.CyjTcSa1TzG_t1Q1FOQ2ZNBMPkY4PyfQEsTBecO8-vs"
+);
