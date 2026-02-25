@@ -7,11 +7,11 @@ btnLogin.addEventListener("click", async () => {
   status.innerText = "Abrindo login do Google...";
 
   const { error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: window.location.origin + "/dashboard.html"
-    }
-  });
+  provider: 'google',
+  options: {
+    redirectTo: 'https://adalbertobertulino.github.io/Sistema_DOT_Moreira/index.html'
+  }
+});
 
   if (error) {
     console.error(error);
