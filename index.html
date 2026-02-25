@@ -1,37 +1,30 @@
-<!doctype html>
-<html lang="pt-BR">
+<!DOCTYPE html>
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sistema DOT Moreira - Login</title>
-  <link rel="stylesheet" href="./css/style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistema DOT - Login</title>
+
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; }
+    .box { max-width: 420px; margin: 60px auto; border: 1px solid #ddd; padding: 20px; border-radius: 10px; }
+    button { width: 100%; padding: 12px; font-size: 16px; cursor: pointer; }
+    .hint { margin-top: 12px; font-size: 13px; color: #666; }
+  </style>
 </head>
-<body class="page">
+<body>
+  <div class="box">
+    <h2>Sistema DOT Moreira</h2>
+    <p>Entre com sua conta Google.</p>
 
-  <header class="topbar">
-    <div class="brand">Sistema DOT Moreira</div>
-    <div class="muted small">Login</div>
-  </header>
+    <button id="btnGoogle">Entrar com Google</button>
 
-  <main class="container">
-    <section class="card">
-      <h1 class="title">Acesso do DOT / Gestão</h1>
-      <p class="muted">
-        Entre com sua conta Google (preferencialmente institucional).
-      </p>
+    <div class="hint">
+      Se clicar e não abrir nada: aperte F12 → Console e me mande o erro.
+    </div>
+  </div>
 
-      <button id="btnGoogle" class="btn primary">Entrar com Google</button>
-
-      <p id="status" class="status">Aguardando login...</p>
-    </section>
-  </main>
-
-  <script type="module">
-    import { bindGoogleLogin } from "./js/auth.js";
-    bindGoogleLogin("btnGoogle", "status", "dashboard.html");
-  </script>
-<script type="module" src="./js/supabase.js"></script>
-<script type="module" src="./js/auth.js"></script>
+  <script type="module" src="./js/supabase.js"></script>
+  <script type="module" src="./js/auth.js"></script>
 </body>
 </html>
-
