@@ -1,47 +1,35 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Dashboard</title>
 </head>
 <body>
-  <h2>Dashboard</h2>
-  <p id="status">Carregando sessão...</p>
 
-  <button id="btnSair">Sair</button>
+  <h1>Dashboard DOT</h1>
+  <p id="user"></p>
+
+  <button id="logout">Sair</button>
 
   <script type="module">
     import { supabase } from "./js/supabase.js";
 
-    const status = document.getElementById("status");
-    const btnSair = document.getElementById("btnSair");
+    const userP = document.getElementById("user");
+    const logoutBtn = document.getElementById("logout");
 
-    async function loadSession() {
-      const { data: { session }, error } = await supabase.auth.getSession();
+    const { data } = await supabase.auth.getUser();
 
-      if (error) {
-        console.error(error);
-        status.textContent = "Erro ao ler sessão (veja console).";
-        return;
-      }
-
-      if (!session) {
-        status.textContent = "Sem login. Voltando para login...";
-        window.location.href = "./index.html";
-        return;
-      }
-
-      status.textContent = `Logado como: ${session.user.email}`;
+    if (!data.user) {
+      window.location.href = "index.html";
+    } else {
+      userP.innerText = "Logado como: " + data.user.email;
     }
 
-    btnSair.addEventListener("click", async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) console.error(error);
-      window.location.href = "./index.html";
-    });
-
-    loadSession();
+    logoutBtn.onclick = async () => {
+      await supabase.auth.signOut();
+      window.location.href = "index.html";
+    };
   </script>
+
 </body>
 </html>
