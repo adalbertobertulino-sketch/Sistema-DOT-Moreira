@@ -1,57 +1,47 @@
-<!doctype html>
-<html lang="pt-BR">
+<!DOCTYPE html>
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dashboard - Sistema DOT Moreira</title>
-  <link rel="stylesheet" href="./css/style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard</title>
 </head>
-<body class="page">
+<body>
+  <h2>Dashboard</h2>
+  <p id="status">Carregando sessão...</p>
 
-  <header class="topbar">
-    <div>
-      <div class="brand">Sistema DOT Moreira</div>
-      <div class="muted small">Painel</div>
-    </div>
+  <button id="btnSair">Sair</button>
 
-    <div class="topbar-actions">
-      <a class="btn secondary" href="./alunos.html">Cadastro de Alunos</a>
-      <a class="btn secondary" href="./frequencia.html">Frequência</a>
-      <button id="btnSair" class="btn danger">Sair</button>
-    </div>
-  </header>
+  <script type="module">
+    import { supabase } from "./js/supabase.js";
 
-  <main class="container">
-    <section class="card">
-      <h2 class="subtitle">Seu perfil</h2>
+    const status = document.getElementById("status");
+    const btnSair = document.getElementById("btnSair");
 
-      <div class="grid">
-        <div>
-          <div class="label">Nome</div>
-          <div id="nomeUser">Carregando...</div>
-        </div>
-        <div>
-          <div class="label">E-mail</div>
-          <div id="emailUser">Carregando...</div>
-        </div>
-        <div>
-          <div class="label">UID</div>
-          <div id="uidUser">Carregando...</div>
-        </div>
-        <div>
-          <div class="label">Roles</div>
-          <div id="rolesUser">Carregando...</div>
-        </div>
-        <div>
-          <div class="label">Turmas permitidas</div>
-          <div id="turmasUser">Carregando...</div>
-        </div>
-      </div>
+    async function loadSession() {
+      const { data: { session }, error } = await supabase.auth.getSession();
 
-      <p id="dashStatus" class="status">Carregando perfil...</p>
-    </section>
-  </main>
+      if (error) {
+        console.error(error);
+        status.textContent = "Erro ao ler sessão (veja console).";
+        return;
+      }
 
-  <script type="module" src="./js/dashboard.js"></script>
+      if (!session) {
+        status.textContent = "Sem login. Voltando para login...";
+        window.location.href = "./index.html";
+        return;
+      }
+
+      status.textContent = `Logado como: ${session.user.email}`;
+    }
+
+    btnSair.addEventListener("click", async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) console.error(error);
+      window.location.href = "./index.html";
+    });
+
+    loadSession();
+  </script>
 </body>
 </html>
